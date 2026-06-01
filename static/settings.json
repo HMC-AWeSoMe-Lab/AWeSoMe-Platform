@@ -1,0 +1,19 @@
+{
+    "theme": {
+        "textColor": "black",
+        "fontFamily": "Lato, sans-serif",
+        "fontSize": "16px",
+        "siteBackgroundColor": "white",
+        "commentBackgroundColor": "white",
+        "commentIndentation": 1
+    },
+    "commentBox": {
+        "borderColor": "gray",
+        "placeholderText": "Start typing...",
+        "replyInComments": "",
+        "displayScore": "",
+        "displayCancel": true,
+        "submitButtonText": "Submit",
+        "anon_users" : "z"
+    }
+}

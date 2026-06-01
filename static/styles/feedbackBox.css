@@ -1,0 +1,29 @@
+/* frontend/styles/feedbackBox.css */
+
+.feedback-box {
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    z-index: 9999;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+}
+
+.feedback-box #feedback-text {
+    margin-bottom: 10px;
+}
+
+.feedback-box button {
+    background-color: #007BFF;
+    color: white;
+    border: none;
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.feedback-box button:hover {
+    background-color: #0056b3;
+}
