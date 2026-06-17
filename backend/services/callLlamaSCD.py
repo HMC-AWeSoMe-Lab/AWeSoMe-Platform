@@ -22,9 +22,9 @@ def call_llama(system_prompt, user_prompt, bucket = 0):
     client = OpenAI(base_url=call_url, api_key = "dummy_key"
     )
 
-    # POST-ing to HMC servers downstairs
+    # POST-ing to HMC servsers downstairs
     completion = client.chat.completions.create(
-    model="model-identifier",
+    model="hellooooo",
     messages=[
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_prompt}
@@ -38,3 +38,7 @@ def call_llama(system_prompt, user_prompt, bucket = 0):
     text_only_response = full_response.content
 
     return text_only_response
+
+if __name__ == "__main__":
+    result = call_llama("you are a helpful assistant", "hello, how are you")
+    print(result)

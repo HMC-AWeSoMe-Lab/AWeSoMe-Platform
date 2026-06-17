@@ -2,7 +2,7 @@ import re
 import random
 import string
 import markdown
-from convokit import Corpus, download
+
 
 def fix_summary_chars(input_text):
     """Given by Yilun (borrowed from Convokit repo / cornell)
@@ -45,28 +45,19 @@ def transcript(convo):
 
     # loop through utterances and add their speakers and text to transcript
     for utt in convo.get_chronological_utterance_list():
-        # mark new speakers in speakerDict by order
-        if utt.speaker not in speakerDict:
-            speakerDict[utt.speaker] = len(speakerDict) + 1
+        if utt.speaker_id not in speakerDict:
+            speakerDict[utt.speaker_id] = len(speakerDict) + 1
+        transcript_output += ("Speaker" + str(speakerDict[utt.speaker_id]) + ": " + utt.text + "\n")
 
-
-        transcript_output += ("Speaker" + str(speakerDict[utt.speaker]) + ": " + utt.text + "\n")
     
     convo.add_meta('text', transcript_output)
     return fix_summary_chars(transcript_output)
 
-def transcript_id(id, corpus):
-    """Returns transcript of a conversation given its ID
+from config import active_adapter
 
-    :param id: ID of conversation
-    :type id: str
-    :param corpus: corpus the conversation is from
-    :type corpus: Corpus
-    :return: transcript of conversation
-    :rtype: str
-    """
-    return transcript(corpus.get_conversation(id))
+def transcript_id(convo_id):
+    return transcript(active_adapter.get_conversation(convo_id))
 
 
 def get_SCD(convo):
-    return markdown.markdown(convo.meta["summary_meta"][-1])
+    return markdown.markdown(convo.meta["conversation_summary"][-1])

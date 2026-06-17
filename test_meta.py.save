@@ -1,0 +1,9 @@
+from backend.convo_interface import ConvoInterface
+
+corpus = Corpus("/home/hrepp/.convokit/saved-corpora/SCD-corpus")
+convo = next(corpus.iter_conversations())
+
+print("Conversation ID:", convo.id)
+print("Meta keys:", list(convo.meta.keys()))
+print("Meta:", convo.meta)
+

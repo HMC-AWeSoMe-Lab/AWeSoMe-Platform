@@ -89,7 +89,7 @@ def filterByCraftScore(corpus, score_threshold=.70):
 
 if __name__ == "__main__":
     # === Step 1: Load base corpus ===
-    corpus =  Corpus("/home/ssegal/.convokit/saved-corpora/SCD-corpus")
+    corpus =  Corpus("/home/hrepp/SCD-corpus")
     print(len(list(corpus.iter_conversations())))
     # === Step 2: Add your custom metadata ===
     #     addToCorpus(corpus, "tweakedSCD.csv")

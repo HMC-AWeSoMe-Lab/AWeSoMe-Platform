@@ -11,6 +11,10 @@ def text_to_insert(convo):
     """
     return get_SCD(convo)
 
+def get_summary_popup_logic(convo):
+    from backend.services.SCD_helpers import get_SCD
+    return get_SCD(convo)  # reads from convo.meta["conversation_summary"]
+
 def default_popup_logic(text):
     """
     Default logic for determining popup text based on user input.
@@ -182,3 +186,25 @@ def default_highlight_logic(text):
             start = pos + 1
             
     return ranges
+
+
+TRIGGER_WORDS = ["stupid", "idiot", "hate", "angry", "dumb", "terrible", "awful"]
+
+def submit_check_logic(text):
+    """
+    Checks the draft comment for trigger words before posting.
+
+    :param text: User input text to analyze
+    :type text: str
+    :return: Warning message if a trigger word is found, otherwise None
+    :rtype: str or None
+    """
+    if not text:
+        return None
+
+    text_lower = text.lower()
+    for word in TRIGGER_WORDS:
+        if word in text_lower:
+            return "Your message may come across as harsh. Consider revising before posting."
+
+    return None

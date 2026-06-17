@@ -1,5 +1,6 @@
 from flask import *
-from backend.services.CGA_CMV import get_convo, get_corpus, display_convo, get_reply_id, get_convo_depth_css
+from backend.services.CGA_CMV import get_convo, display_convo, get_reply_id, get_convo_depth_css
+from config import active_adapter
 from backend.database.database import insert_posts, update_latest_interaction_id, dump_payloads_db, insert_trial_mode
 from backend.services.mode_assignment import add_intervention
 from backend.interventions.interventionHelpers import *
@@ -19,32 +20,46 @@ INTERVENTIONS = [
         text_func=lambda text: "Consider being more constructive!",
         button_id="submit-comment"
     ),
+    #feedbackBoxIntervention(
+    #    trigger_event="onClick",
+    #    text_func=lambda text: get_summary_popup_logic(convo_cache.get(session.get('convo_id'))),
+    #    button_id="reply-button",
+    #    parent_id="first-comment",  # <-- fixed ID
+    #    relation="above",
+    #    width="400px"
+    #),
     HighlightingIntervention(
         trigger_event="onText",
         highlight_func=target_phrase_highlight_logic
     ),
-    # PopupIntervention(
-    #     trigger_event="onClick",        # different trigger event
-    #     text_func=default_popup_logic,
-    #     button_id="submit-comment"     # specific button ID to trigger this popup
-    # ),
-    # HighlightingIntervention(
-    #     trigger_event="onText",         # trigger on text input
-    #     highlight_func=simple_highlight_logic  # use our test function
-    # ),
-    # feedbackBoxIntervention(
-    #     trigger_event="onClick",
-    #     text_func=lambda text: "Consider being more constructive!",
-    #     button_id="reply-button",
-    #     parent_id="reply-box",
-    #     relation="above",
-    #     width="400px"
-    # )
-    # PopupIntervention(
-    #     trigger_event="onClick",        # different trigger event
-    #     text_func=default_popup_logic,
-    #     button_id="feedback-button-above"     # specific button ID to trigger this popup
-    # )
+    PopupIntervention(
+        trigger_event="onClick",        # different trigger event
+        text_func=default_popup_logic,
+        button_id="submit-comment"     # specific button ID to trigger this popup
+    ),
+    HighlightingIntervention(
+        trigger_event="onText",         # trigger on text input
+        highlight_func=simple_highlight_logic  # use our test function
+    ),
+    feedbackBoxIntervention(
+        trigger_event="onClick",
+        text_func=lambda text: "Consider being more constructive!",
+        button_id="reply-button",
+        parent_id="reply-box",
+        relation="above",
+        width="400px"
+    ),
+    PopupIntervention(
+        trigger_event="onClick",        # different trigger event
+        text_func=default_popup_logic,
+        button_id="feedback-button-above"     # specific button ID to trigger this popup
+    ),
+    PopupIntervention(
+        trigger_event="onClick",
+        text_func=submit_check_logic,
+        button_id="submit-comment",
+        blocking=True
+    )
 ]
 
 # PRIORITY TODOs:
@@ -52,10 +67,6 @@ INTERVENTIONS = [
 # TODO: ensure popup text is logged in database, along with feedback box text.
 # TODO: comb through all JS files and delete obsolete code, along with deleting obsolete python files
 # TODO: better document data entry patterns across files, needs a more intuitive writeup
-
-
-
-
 # TODO: find out how we could enable popupOnSubmit to not actually submit the comment until a certain button is pressed
 
 
@@ -75,7 +86,7 @@ app.secret_key = "secret_key"
 convo_cache = {}
 
 # Loads corpus only once at startup
-corpus = get_corpus()
+
 
 def is_treatment():
     """
@@ -117,7 +128,7 @@ def index():
     
     # Initializes a new conversation from the corpus
     # and caches it by its ID for later use.
-    new_convo = get_convo(corpus)
+    new_convo = get_convo()
     convo_id = new_convo.id
 
     # Save convo in cache and ID in session
@@ -270,7 +281,7 @@ def start():
     # latest ID into the posts table, closes connection
     insert_posts(action_type, latest_id, current_timestamp)
 
-    # ensures not empty
+    # ensures not fiempty
     if latest_id and action_type and current_timestamp:
          
          # debugging print statements

@@ -48,49 +48,79 @@ export async function toggleCommentBox() {
  * @returns {Promise<void>} Promise that resolves when comment is submitted and UI is updated
  */
 export async function handleCommentSubmit() {
-
-    
     const textArea = domManager.get('textArea');
     const hoverBox = domManager.get('hoverBox');
     const commentContent = textArea.value;
 
-
-
-
-    // Submit the comment first (this is the critical path)
-    const commentPromise = utils.fetchJSON('/comment', {
+    // Check for blocking interventions (e.g. trigger words) before posting
+    const res = await fetch('/interventions', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            comment: commentContent,
-            id: appState.latestID,
-            actionType: 'FINISH',
-            currentTimestamp: appState.latestTimestamp
+            text: commentContent,
+            latestID: appState.latestID,
+            currentTimestamp: Date.now(),
+            triggerEvent: "onClick",
+            buttonID: "submit-comment"
         })
     });
 
+    const interventions = await res.json();
+    const blockingPopup = interventions.find(i => i.type === "popup" && i.blocking);
+
+    if (blockingPopup) {
+        // Show the popup and wait for the user's choice instead of posting now
+        showBlockingPopup(blockingPopup, commentContent);
+        return;
+    }
+
+    // No trigger word found — post immediately
+    await postComment(commentContent);
+}
+
+async function postComment(commentContent) {
+    const textArea = domManager.get('textArea');
+    const hoverBox = domManager.get('hoverBox');
+
     try {
-        // Handle comment post result first
-        const postData = await commentPromise;
-        
+        const postData = await utils.fetchJSON('/comment', {
+            method: 'POST',
+            body: JSON.stringify({
+                comment: commentContent,
+                id: appState.latestID,
+                actionType: 'FINISH',
+                currentTimestamp: appState.latestTimestamp
+            })
+        });
+
         if (postData.html) {
             document.getElementById("reddit-convo").insertAdjacentHTML("beforeend", postData.html);
             textArea.value = "";
             hoverBox.style.display = "none";
-            
-            // Reposition any dynamic UI elements after adding new comment
-            setTimeout(() => {
-                repositionAllElements();
-            }, 50); // Small delay to ensure DOM is updated
+            setTimeout(() => repositionAllElements(), 50);
         } else if (postData.error) {
             console.error("Server error:", postData.error);
         }
-
-        // Note: Popup on submit functionality disabled (route removed)
-        // If you need popup functionality, use the new intervention system in INTERVENTIONS list
-        console.log("Submit popup functionality disabled - use intervention system instead");
     } catch (error) {
         console.error("Error posting comment:", error);
     }
+}
+
+function showBlockingPopup(data, commentContent) {
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = data.html;
+    const popupElement = wrapper.firstElementChild;
+    document.body.appendChild(popupElement);
+
+    document.getElementById("popup-post-anyway-button")?.addEventListener("click", async () => {
+        popupElement.remove();
+        await postComment(commentContent);
+    });
+
+    document.getElementById("popup-edit-button")?.addEventListener("click", () => {
+        popupElement.remove();
+        // leave textarea as-is so the user can revise it
+    });
 }
 
 /**

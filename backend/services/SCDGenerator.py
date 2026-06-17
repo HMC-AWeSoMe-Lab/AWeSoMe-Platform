@@ -84,6 +84,8 @@ derailment_guess_prompt = '''something something guess if this is gonna go awry 
 conversation_summary_prompt = '''briefly summarize the following online conversation in 80 words.
 '''
 
+content_prompt = "Give a quick 1-2 sentence summary/ background information on the content being discussed in the previous conversation. Explain terms or technical jargon if they are not widely understood by the general public. Keep your summary clear and concise. Do not over explain or analyze. "
+
 
 def getSCD(transcript, bucket = 0):
     """Returns SCD of a given conversation in a given bucket
@@ -133,6 +135,11 @@ def getConversationSummary(convo, bucket = 0):
     :rtype: string
     """
     return call_llama(conversation_summary_prompt, convo, bucket)
+
+def getTrajectorySummary(convo, bucket=0):
+    'provides a summary of the general topic and provides context for the conversation'
+    return call_llama(content_prompt, convo, bucket)
+
 
 def getCS_Procedural_Awesome(convo, bucket = 0):
     """Returns Conversation Summary of a given conversation in a given bucket

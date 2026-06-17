@@ -11,7 +11,7 @@
         "borderColor": "gray",
         "placeholderText": "Start typing...",
         "replyInComments": "",
-        "displayScore": "",
+        "displayScore": true,
         "displayCancel": true,
         "submitButtonText": "Submit",
         "anon_users" : "z"

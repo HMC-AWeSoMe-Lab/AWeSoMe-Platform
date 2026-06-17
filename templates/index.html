@@ -17,6 +17,10 @@
 
 <div id="comments" class="container">
   <div class="thread" id="thread">
+    <div id="trajectory-summary-box" class="trajectory-summary-box" style="display:none;">
+      <h3>Trajectory Summary</h3>
+      <div id="trajectory-summary-text"></div>
+    </div>
     <div class="reddit-convo" id="reddit-convo">
     {% for utt in reply_list %}
       {{ utt | safe }}
