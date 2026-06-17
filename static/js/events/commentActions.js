@@ -112,12 +112,18 @@ function showBlockingPopup(data, commentContent) {
     const popupElement = wrapper.firstElementChild;
     document.body.appendChild(popupElement);
 
-    document.getElementById("popup-post-anyway-button")?.addEventListener("click", async () => {
+    document.getElementById("popup-post-anyway-button")?.addEventListener("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        console.log("POST ANYWAY CLICKED");
         popupElement.remove();
         await postComment(commentContent);
     });
 
-    document.getElementById("popup-edit-button")?.addEventListener("click", () => {
+    document.getElementById("popup-edit-button")?.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        console.log("EDIT CLICKED");
         popupElement.remove();
         // leave textarea as-is so the user can revise it
     });

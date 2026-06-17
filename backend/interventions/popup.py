@@ -9,7 +9,7 @@ class PopupIntervention(BaseIntervention):
     such as page load, button clicks, or text input.
     """
 
-    def __init__(self, trigger_event, text_func, button_id=None):
+    def __init__(self, trigger_event, text_func, button_id=None, blocking=False):
         """
         Initialize a popup intervention.
 
@@ -19,12 +19,16 @@ class PopupIntervention(BaseIntervention):
         :type text_func: callable
         :param button_id: Specific button ID to trigger popup (for onClick events), defaults to None
         :type button_id: str or None, optional
+        :param blocking: If True, shows "Post Anyway" / "Edit Post" buttons instead of OK,
+                         and prevents the comment from posting until the user chooses.
+        :type blocking: bool, optional
         """
         super().__init__()
         self.name = "popup"
         self.trigger_event = trigger_event
         self.button_id = button_id
         self.text_func = text_func
+        self.blocking = blocking
 
     def get_trigger_event(self):
         """
@@ -33,12 +37,12 @@ class PopupIntervention(BaseIntervention):
         :return: The trigger event string
         :rtype: str
         """
-        return self.trigger_event 
-    
-    def get_payload(self, convo=None, text=None, button_id=None, blocking=False, **kwargs):
+        return self.trigger_event
+
+    def get_payload(self, convo=None, text=None, button_id=None, **kwargs):
         if self.trigger_event == "onClick":
             if self.button_id is None:
-                error_msg = f"PopupIntervention with onClick trigger must specify a button_id parameter"
+                error_msg = "PopupIntervention with onClick trigger must specify a button_id parameter"
                 print(f"❌ INTERVENTION ERROR: {error_msg}")
                 raise ValueError(error_msg)
 
@@ -53,17 +57,17 @@ class PopupIntervention(BaseIntervention):
 
         header_text = "ConvoWizard Suggestion"
 
-        if blocking:
+        if self.blocking:
             buttons_html = """
-                <button class="popup-post-anyway" id="popup-post-anyway-button">Post Anyway</button>
-                <button class="popup-edit" id="popup-edit-button">Edit Post</button>
+                <button type="button" class="popup-post-anyway" id="popup-post-anyway-button">Post Anyway</button>
+                <button type="button" class="popup-edit" id="popup-edit-button">Edit Post</button>
             """
         else:
             buttons_html = '<button class="popup-close" id="popup-close-button">OK</button>'
 
         return {
             "type": "popup",
-            "blocking": blocking,
+            "blocking": self.blocking,
             "html": f"""<div class="popup" id="popup"
                         data-intervention-type="popup"
                         data-event-id="POPUP">
@@ -76,10 +80,3 @@ class PopupIntervention(BaseIntervention):
                         </div>""",
             "triggerEvent": self.trigger_event,
         }
-    def __init__(self, trigger_event, text_func, button_id=None, blocking=False):
-        super().__init__()
-        self.name = "popup"
-        self.trigger_event = trigger_event
-        self.button_id = button_id
-        self.text_func = text_func
-        self.blocking = blocking
