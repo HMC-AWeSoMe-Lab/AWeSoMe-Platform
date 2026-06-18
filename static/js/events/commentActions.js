@@ -5,6 +5,7 @@ import { pushToPayloadQueue, dumpPayloadQueue } from '../services/payloadQueue.j
 import { repositionAllElements } from '../services/layoutManager.js';
 import { clearAllFeedbackBoxes } from '../interventions/feedbackBox.js';
 import { triggerInterventions } from '../main.js';
+import { removeHighlights } from '../interventions/highlighting.js';
 
 let activeReplyContainer = null;
 
@@ -101,6 +102,7 @@ async function postComment(commentContent) {
             replyBox.insertAdjacentHTML('beforebegin', postData.html);
 
             textArea.value = "";
+            removeHighlights();
             replyBox.style.display = "none";
             if (hoverBox) hoverBox.style.display = "none";
             activeReplyContainer = null;
