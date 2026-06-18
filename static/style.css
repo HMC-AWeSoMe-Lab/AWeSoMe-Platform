@@ -96,13 +96,6 @@ body {
     left: -10px;
 }
 
-#reply-box {
-    display: none; 
-    margin-top: 1rem;
-    position: static; /* Use normal document flow */
-}
-
-
 .text-area {
   position: relative;
   /* max-width: 700px; */
@@ -160,15 +153,22 @@ body {
 
 
 .reply {
-  position: static;   /* normal flow */
-  display: none;      /* you'll toggle it to block via JS or your existing toggle */
-  /* you can add padding, borders, etc., as you like: */
-  padding: 0.5rem 1rem;
-  background: var(--commentBackgroundColor);
-  border: 1px solid var(--borderColor);
-  border-radius: 0.25rem;
-  cursor: pointer;
-}
+    display: inline-block;
+    padding: 0.25rem 0.7rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: transparent;
+    border: 1px solid var(--borderColor);
+    border-radius: 999px;
+    color: #666;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  
+  .reply:hover {
+    background: var(--commentBackgroundColor);
+    color: #333;
+  }
 
 #comments {
   display: block;

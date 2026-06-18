@@ -10,7 +10,7 @@
     "commentBox": {
         "borderColor": "gray",
         "placeholderText": "Start typing...",
-        "replyInComments": "",
+        "replyInComments": true,
         "displayScore": true,
         "displayCancel": true,
         "submitButtonText": "Submit",

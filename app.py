@@ -15,44 +15,31 @@ import json
 # Initialize your interventions here !
 
 INTERVENTIONS = [
-    PopupIntervention(
+    feedbackBoxIntervention(
         trigger_event="onClick",
         text_func=lambda text: "Consider being more constructive!",
-        button_id="submit-comment"
+        button_id="reply-btn",
+        parent_id="reply-box",
+        relation="above",
+        width="100%"
     ),
-    #feedbackBoxIntervention(
-    #    trigger_event="onClick",
-    #    text_func=lambda text: get_summary_popup_logic(convo_cache.get(session.get('convo_id'))),
-    #    button_id="reply-button",
-    #    parent_id="first-comment",  # <-- fixed ID
-    #    relation="above",
-    #    width="400px"
-    #),
     HighlightingIntervention(
         trigger_event="onText",
         highlight_func=target_phrase_highlight_logic
     ),
     PopupIntervention(
-        trigger_event="onClick",        # different trigger event
+        trigger_event="onClick",
         text_func=default_popup_logic,
-        button_id="submit-comment"     # specific button ID to trigger this popup
+        button_id="submit-comment"
     ),
     HighlightingIntervention(
-        trigger_event="onText",         # trigger on text input
-        highlight_func=simple_highlight_logic  # use our test function
-    ),
-    feedbackBoxIntervention(
-        trigger_event="onClick",
-        text_func=lambda text: "Consider being more constructive!",
-        button_id="reply-button",
-        parent_id="reply-box",
-        relation="above",
-        width="400px"
+        trigger_event="onText",
+        highlight_func=simple_highlight_logic
     ),
     PopupIntervention(
-        trigger_event="onClick",        # different trigger event
+        trigger_event="onClick",
         text_func=default_popup_logic,
-        button_id="feedback-button-above"     # specific button ID to trigger this popup
+        button_id="feedback-button-above"
     ),
     PopupIntervention(
         trigger_event="onClick",

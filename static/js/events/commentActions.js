@@ -4,26 +4,32 @@ import { utils } from '../services/utils.js';
 import { pushToPayloadQueue, dumpPayloadQueue } from '../services/payloadQueue.js';
 import { repositionAllElements } from '../services/layoutManager.js';
 import { clearAllFeedbackBoxes } from '../interventions/feedbackBox.js';
+import { triggerInterventions } from '../main.js';
 
-/**
- * Toggles the comment box visibility and logs the reply button interaction.
- * Shows the reply textarea and hides the reply button, then triggers backend logging.
- * 
- * @returns {Promise<void>} Promise that resolves when comment box is toggled and logged
- */
-export async function toggleCommentBox() {
+let activeReplyContainer = null;
+
+export async function toggleCommentBox(btn) {
     appState.updateTimestamp();
 
     const replyBox = document.getElementById('reply-box');
-    const replyButton = document.getElementById('reply-button');
 
-    replyBox.style.display = "block";
-    replyButton.style.display = "none";
+    if (btn) {
+        const commentContainer = btn.closest('.comment__container');
+        if (commentContainer) {
+            activeReplyContainer = commentContainer;
+            commentContainer.insertAdjacentElement('afterend', replyBox);
+        }
+    }
 
-    // Reposition any dynamic UI elements after showing reply box
-    setTimeout(() => {
-        repositionAllElements();
-    }, 50); // Small delay to ensure DOM is updated
+    replyBox.style.display = 'block';
+
+    const textArea = document.getElementById('content');
+    if (textArea) setTimeout(() => textArea.focus(), 50);
+
+    setTimeout(() => repositionAllElements(), 50);
+
+    // Fire the popup intervention for treatment group (backend gates on is_treatment())
+    triggerInterventions("", appState.latestID, "onClick", "reply-btn");
 
     try {
         const result = await utils.fetchJSON('/reply_action', {
@@ -32,7 +38,7 @@ export async function toggleCommentBox() {
                 id: appState.latestID,
                 actionType: 'BUTTON_CLICK',
                 currentTimestamp: appState.latestTimestamp,
-                buttonID: 'reply-button'
+                buttonID: btn ? (btn.getAttribute('data-utt-id') || 'reply-btn') : 'reply-btn'
             })
         });
         console.log("Result from /reply_action:", result);
@@ -41,18 +47,11 @@ export async function toggleCommentBox() {
     }
 }
 
-/**
- * Handles comment submission by posting the comment content to the backend.
- * Retrieves text from the comment textarea, submits it, and updates the conversation display.
- * 
- * @returns {Promise<void>} Promise that resolves when comment is submitted and UI is updated
- */
 export async function handleCommentSubmit() {
     const textArea = domManager.get('textArea');
     const hoverBox = domManager.get('hoverBox');
     const commentContent = textArea.value;
 
-    // Check for blocking interventions (e.g. trigger words) before posting
     const res = await fetch('/interventions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -69,12 +68,10 @@ export async function handleCommentSubmit() {
     const blockingPopup = interventions.find(i => i.type === "popup" && i.blocking);
 
     if (blockingPopup) {
-        // Show the popup and wait for the user's choice instead of posting now
         showBlockingPopup(blockingPopup, commentContent);
         return;
     }
 
-    // No trigger word found — post immediately
     await postComment(commentContent);
 }
 
@@ -94,9 +91,15 @@ async function postComment(commentContent) {
         });
 
         if (postData.html) {
-            document.getElementById("reddit-convo").insertAdjacentHTML("beforeend", postData.html);
+            const replyBox = document.getElementById('reply-box');
+            // Insert new comment directly above the reply-box so it appears
+            // right under the comment that was replied to
+            replyBox.insertAdjacentHTML('beforebegin', postData.html);
+
             textArea.value = "";
-            hoverBox.style.display = "none";
+            replyBox.style.display = "none";
+            if (hoverBox) hoverBox.style.display = "none";
+            activeReplyContainer = null;
             setTimeout(() => repositionAllElements(), 50);
         } else if (postData.error) {
             console.error("Server error:", postData.error);
@@ -115,7 +118,6 @@ function showBlockingPopup(data, commentContent) {
     document.getElementById("popup-post-anyway-button")?.addEventListener("click", async (event) => {
         event.preventDefault();
         event.stopPropagation();
-        console.log("POST ANYWAY CLICKED");
         popupElement.remove();
         await postComment(commentContent);
     });
@@ -123,30 +125,20 @@ function showBlockingPopup(data, commentContent) {
     document.getElementById("popup-edit-button")?.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
-        console.log("EDIT CLICKED");
         popupElement.remove();
-        // leave textarea as-is so the user can revise it
     });
 }
 
-/**
- * Handles comment cancellation by hiding the reply box and clearing any feedback.
- * Resets the UI to its initial state and clears all active feedback boxes.
- * 
- * @returns {Promise<void>} Promise that resolves when comment is canceled and UI is reset
- */
 export async function handleCommentCancel() {
     appState.setLatestAction("BUTTON_CLICK", "cancel-button");
     await pushToPayloadQueue();
 
-    // Clear feedback boxes BEFORE hiding elements to prevent positioning issues
     clearAllFeedbackBoxes();
 
     const replyBox = document.getElementById('reply-box');
-    const replyButton = document.getElementById('reply-button');
     const hoverBox = domManager.get('hoverBox');
-    
+
     replyBox.style.display = "none";
-    replyButton.style.display = "block";
-    hoverBox.style.display = "none";
+    if (hoverBox) hoverBox.style.display = "none";
+    activeReplyContainer = null;
 }

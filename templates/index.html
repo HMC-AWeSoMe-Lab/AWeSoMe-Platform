@@ -7,14 +7,10 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css')}}">
 <link rel="stylesheet" href="{{ url_for('static', filename='styles/popup.css') }}">
 <link rel="stylesheet" href="/static/styles/feedbackBox.css">
-
 <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
-
-
 {% endblock %}
+
 {% block body %}
-
-
 <div id="comments" class="container">
   <div class="thread" id="thread">
     <div id="trajectory-summary-box" class="trajectory-summary-box" style="display:none;">
@@ -22,27 +18,23 @@
       <div id="trajectory-summary-text"></div>
     </div>
     <div class="reddit-convo" id="reddit-convo">
-    {% for utt in reply_list %}
-      {{ utt | safe }}
-    {% endfor %}
-    <button id="reply-button" class="reply" onclick="toggleCommentBox()">
-      Reply to {{ reply_id }}
-    </button>
+      {% for utt in reply_list %}
+        {{ utt | safe }}
+      {% endfor %}
     </div>
 
+    <div id="reply-box" class="text-area" style="display:none;">
+      <form id="comment-form">
+        <textarea id="content" class="user-input" placeholder="{{placeholder_text}}"></textarea>
+        <div class="comment-actions">
+          <button type="button" class="cancel" id="cancel-button">Cancel</button>
+          <button type="button" class="submit-comment" id="submit-comment">{{submit_button_text}}</button>
+        </div>
+      </form>
+    </div>
 
-
-  <div id="reply-box" class="text-area">
-    <form id="comment-form">
-      <textarea id="content" class="user-input" placeholder="{{placeholder_text}}"></textarea>
-      <div class="comment-actions">
-        <button type="button" class="cancel" id="cancel-button">Cancel</button>
-        <button type="button" class="submit-comment" id="submit-comment">{{submit_button_text}}</button>
-      </div>
-    </form>
   </div>
-
+</div>
 
 <script type="module" src="{{ url_for('static', filename='js/main.js') }}"></script>
 {% endblock %}
-

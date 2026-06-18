@@ -151,8 +151,7 @@ def display_convo(c, comment_content=None):
             user_dict[str(utt.speaker_id)] = str(utt.speaker_id)
 
         if reply_in_comments:
-            reply_button_html = "<button class=\"reply\" id=" + str(utt.id) + ">reply</button>"
-
+            reply_button_html = f'<button class="reply" data-utt-id="{utt.id}" onclick="toggleCommentBox(this)">↩ reply</button>'
         if display_score and utt.score is not None:
             score_html = "<div> Score: " + str(utt.score) + "</div>"
         else:
