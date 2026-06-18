@@ -2,30 +2,20 @@ import { appState } from '../services/appState.js';
 import { domManager } from '../dom/domManager.js';
 import { utils, debounce } from '../services/utils.js';
 
-// Internal flag to cache result
 let highlightFeatureEnabled = null;
 
-// Check server-side setting - highlighting is now enabled via intervention system
 async function checkHighlightingEnabled() {
     if (highlightFeatureEnabled !== null) return highlightFeatureEnabled;
-
-    // Highlighting is enabled through the intervention system
-    // We'll check this when we actually call the intervention
     highlightFeatureEnabled = true;
-    console.log("[Highlight] Feature enabled via intervention system");
     return highlightFeatureEnabled;
 }
 
-// Fetch highlight ranges from server via intervention system
 export async function getHighlights(text) {
     appState.setLatestAction("HIGHLIGHT_INTERVENTION", text);
-
     try {
         const response = await fetch('/interventions', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 text: text,
                 triggerEvent: "onText",
@@ -33,29 +23,18 @@ export async function getHighlights(text) {
                 currentTimestamp: appState.latestTimestamp
             })
         });
-
         const interventions = await response.json();
-        
-        // Find the highlighting intervention in the response
-        const highlightIntervention = interventions.find(intervention => 
-            intervention.type === "highlighting"
-        );
-        
+        const highlightIntervention = interventions.find(i => i.type === "highlighting");
         if (highlightIntervention && highlightIntervention.enabled) {
-            const ranges = highlightIntervention.highlight_indices || [];
-            console.log("[Highlight] Received ranges:", ranges);
-            return ranges;
-        } else {
-            console.log("[Highlight] No highlighting intervention found or disabled");
-            return [];
+            return highlightIntervention.highlight_indices || [];
         }
+        return [];
     } catch (error) {
         console.error("[Highlight] Error fetching highlights:", error);
         return [];
     }
 }
 
-// Escape HTML special chars and convert spaces/newlines
 function escapeHTML(str) {
     return str
         .replace(/&/g, '&amp;')
@@ -65,21 +44,14 @@ function escapeHTML(str) {
         .replace(/\n/g, '<br>');
 }
 
-// Merge overlapping or adjacent ranges
 function mergeRanges(ranges) {
     if (!ranges.length) return [];
-
-    // Sort ranges by start index
     ranges.sort((a, b) => a[0] - b[0]);
-
-    const merged = [ranges[0].slice()]; // clone first range
-
+    const merged = [ranges[0].slice()];
     for (let i = 1; i < ranges.length; i++) {
         const [lastStart, lastEnd] = merged[merged.length - 1];
         const [currStart, currEnd] = ranges[i];
-
         if (currStart <= lastEnd + 1) {
-            // Overlapping or adjacent — merge
             merged[merged.length - 1][1] = Math.max(lastEnd, currEnd);
         } else {
             merged.push(ranges[i].slice());
@@ -88,24 +60,277 @@ function mergeRanges(ranges) {
     return merged;
 }
 
-// Apply highlights to textarea
+function ensureStyles() {
+    if (document.querySelector('#highlight-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'highlight-styles';
+    style.textContent = `
+        .highlights-container {
+            pointer-events: none;
+            user-select: none;
+            overflow: hidden;
+        }
+        .highlights-container .trigger-word {
+            color: transparent;
+            border-bottom: 2px solid #e53935;
+            border-radius: 0;
+        }
+        .highlights-container .trigger-word.hovered {
+            background-color: rgba(229, 57, 53, 0.18);
+        }
+        .hw-tooltip {
+            position: fixed;
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            padding: 6px 10px;
+            pointer-events: none;
+            z-index: 9999;
+            white-space: nowrap;
+        }
+        .hw-tooltip .tt-label {
+            font-size: 0.72rem;
+            color: #888;
+            display: block;
+            margin-bottom: 2px;
+        }
+        .hw-tooltip .tt-body {
+            font-size: 0.85rem;
+            color: #111;
+            display: block;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// Current highlight ranges kept in memory so mousemove can check them
+let currentRanges = [];
+
+// Shared tooltip
+let tooltip = null;
+function getTooltip() {
+    if (!tooltip) {
+        tooltip = document.createElement('div');
+        tooltip.className = 'hw-tooltip';
+        tooltip.innerHTML = `
+            <span class="tt-label">Trigger Word</span>
+            <span class="tt-body">Please consider avoiding this word</span>
+        `;
+        tooltip.style.display = 'none';
+        document.body.appendChild(tooltip);
+    }
+    return tooltip;
+}
+
+function showTooltip(x, y) {
+    const tt = getTooltip();
+    tt.style.display = 'block';
+    tt.style.left = x + 'px';
+    tt.style.top  = (y + 4) + 'px';
+}
+
+function hideTooltip() {
+    if (tooltip) tooltip.style.display = 'none';
+}
+
+// Returns the character index under the mouse inside a textarea,
+// by using a hidden mirror div with the same styles.
+function getCharIndexAtMouse(textarea, mouseX, mouseY) {
+    // Build a temporary mirror div
+    const mirror = document.createElement('div');
+    mirror.style.cssText = `
+        position: fixed;
+        visibility: hidden;
+        pointer-events: none;
+        overflow: auto;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    `;
+
+    const cs = window.getComputedStyle(textarea);
+    const props = [
+        'fontFamily','fontSize','fontWeight','lineHeight',
+        'letterSpacing','wordSpacing','padding','border',
+        'boxSizing','width'
+    ];
+    props.forEach(p => { mirror.style[p] = cs[p]; });
+
+    // Place the mirror at the same position as the textarea
+    const rect = textarea.getBoundingClientRect();
+    mirror.style.left   = rect.left + 'px';
+    mirror.style.top    = rect.top  + 'px';
+    mirror.style.width  = rect.width + 'px';
+    mirror.style.height = rect.height + 'px';
+
+    document.body.appendChild(mirror);
+
+    const text = textarea.value;
+    let charIndex = -1;
+
+    // Binary search: find the character whose span contains (mouseX, mouseY)
+    // We wrap each character in a span and use range/caretPositionFromPoint if available,
+    // otherwise fall back to iterating spans.
+
+    // Fast path: use caretPositionFromPoint / caretRangeFromPoint
+    // These work on the real document, not a mirror — but we can use them on the textarea directly.
+    let node = null;
+    let offset = -1;
+
+    if (document.caretPositionFromPoint) {
+        const pos = document.caretPositionFromPoint(mouseX, mouseY);
+        if (pos) { node = pos.offsetNode; offset = pos.offset; }
+    } else if (document.caretRangeFromPoint) {
+        const range = document.caretRangeFromPoint(mouseX, mouseY);
+        if (range) { node = range.startContainer; offset = range.startOffset; }
+    }
+
+    document.body.removeChild(mirror);
+
+    // caretPositionFromPoint gives caret position in the document, not textarea char index.
+    // We need the char index in textarea.value. We'll use the mirror approach with spans instead.
+
+    // Rebuild mirror with per-character spans
+    const mirror2 = document.createElement('div');
+    mirror2.style.cssText = `
+        position: fixed;
+        visibility: hidden;
+        pointer-events: none;
+        overflow: hidden;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    `;
+    props.forEach(p => { mirror2.style[p] = cs[p]; });
+    mirror2.style.left   = rect.left + 'px';
+    mirror2.style.top    = rect.top  + 'px';
+    mirror2.style.width  = rect.width + 'px';
+    mirror2.style.height = rect.height + 'px';
+    // Offset for scroll
+    mirror2.style.marginTop = (-textarea.scrollTop) + 'px';
+
+    // Only wrap characters that are in trigger ranges to keep DOM small
+    const inRange = new Set();
+    currentRanges.forEach(([s, e]) => {
+        for (let i = s; i <= e; i++) inRange.add(i);
+    });
+
+    // Build HTML with spans only on trigger-range chars
+    let html = '';
+    for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        const escaped = ch === ' ' ? '&nbsp;'
+                      : ch === '\n' ? '<br>'
+                      : ch.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        if (inRange.has(i)) {
+            html += `<span data-idx="${i}">${escaped}</span>`;
+        } else {
+            html += escaped;
+        }
+    }
+    mirror2.innerHTML = html;
+    document.body.appendChild(mirror2);
+
+    // Find which span contains the mouse point
+    const spans = mirror2.querySelectorAll('span[data-idx]');
+    for (const span of spans) {
+        const sr = span.getBoundingClientRect();
+        if (mouseX >= sr.left && mouseX <= sr.right &&
+            mouseY >= sr.top  && mouseY <= sr.bottom) {
+            charIndex = parseInt(span.dataset.idx, 10);
+            break;
+        }
+    }
+
+    document.body.removeChild(mirror2);
+    return charIndex;
+}
+
+// Find which trigger range (if any) a char index falls in
+function getRangeForChar(charIndex) {
+    if (charIndex < 0) return null;
+    for (const [s, e] of currentRanges) {
+        if (charIndex >= s && charIndex <= e) return [s, e];
+    }
+    return null;
+}
+
+// Track which range is currently hovered so we don't flicker on every mousemove
+let hoveredRange = null;
+
+function onTextareaMouseMove(e) {
+    const textarea = e.currentTarget;
+    const charIndex = getCharIndexAtMouse(textarea, e.clientX, e.clientY);
+    const range = getRangeForChar(charIndex);
+
+    if (range) {
+        const rangeKey = range[0] + '-' + range[1];
+        const hoveredKey = hoveredRange ? hoveredRange[0] + '-' + hoveredRange[1] : null;
+
+        if (rangeKey !== hoveredKey) {
+            // Clear previous hover
+            clearHoveredSpan();
+            hoveredRange = range;
+            setHoveredSpan(range);
+        }
+
+        // Position tooltip below mouse cursor
+        showTooltip(e.clientX, e.clientY + 16);
+    } else {
+        if (hoveredRange) {
+            clearHoveredSpan();
+            hoveredRange = null;
+            hideTooltip();
+        }
+    }
+}
+
+function onTextareaMouseLeave() {
+    clearHoveredSpan();
+    hoveredRange = null;
+    hideTooltip();
+}
+
+function setHoveredSpan(range) {
+    const textarea = domManager.get('textArea');
+    if (!textarea) return;
+    const container = textarea.parentNode?.querySelector('.highlights-container');
+    if (!container) return;
+    container.querySelectorAll('.trigger-word').forEach(span => {
+        // Match spans by their text offset — find the span whose position in the
+        // container's text node matches our range. We identify them by order.
+        span.classList.add('hovered');
+    });
+    // More precisely: only add .hovered to spans that correspond to this range
+    // We mark them by data-range attribute during build
+    container.querySelectorAll(`.trigger-word[data-start="${range[0]}"]`).forEach(span => {
+        span.classList.add('hovered');
+    });
+}
+
+function clearHoveredSpan() {
+    const textarea = domManager.get('textArea');
+    if (!textarea) return;
+    const container = textarea.parentNode?.querySelector('.highlights-container');
+    if (!container) return;
+    container.querySelectorAll('.trigger-word.hovered').forEach(span => {
+        span.classList.remove('hovered');
+    });
+}
+
 export function applyHighlights(textarea, ranges) {
     if (!textarea || !ranges || ranges.length === 0) {
-        console.log("[Highlight] No textarea or ranges to apply");
+        removeHighlights();
         return;
     }
 
+    ensureStyles();
+    currentRanges = mergeRanges(ranges);
+
     const text = textarea.value;
-    console.log("[Highlight] Applying highlights to text length:", text.length, "with ranges:", ranges);
 
-    // Remove existing highlights container if present
     const old = textarea.parentNode.querySelector('.highlights-container');
-    if (old) {
-        old.remove();
-        console.log("[Highlight] Removed existing highlights");
-    }
+    if (old) old.remove();
 
-    // Create highlights container
     const container = document.createElement('div');
     container.className = 'highlights-container';
 
@@ -114,119 +339,79 @@ export function applyHighlights(textarea, ranges) {
         parent.style.position = 'relative';
     }
 
-    const computedStyles = window.getComputedStyle(textarea);
-
+    const cs = window.getComputedStyle(textarea);
     Object.assign(container.style, {
-        position: 'absolute',
-        top: textarea.offsetTop + 'px',
-        left: textarea.offsetLeft + 'px',
-        width: textarea.offsetWidth + 'px',
-        height: textarea.offsetHeight + 'px',
-        padding: computedStyles.padding,
-        border: computedStyles.border,
-        margin: computedStyles.margin,
-        fontFamily: computedStyles.fontFamily,
-        fontSize: computedStyles.fontSize,
-        fontWeight: computedStyles.fontWeight,
-        lineHeight: computedStyles.lineHeight,
-        letterSpacing: computedStyles.letterSpacing,
-        wordSpacing: computedStyles.wordSpacing,
-        textAlign: computedStyles.textAlign,
-        whiteSpace: computedStyles.whiteSpace,
-        wordWrap: computedStyles.wordWrap,
-        boxSizing: computedStyles.boxSizing,
-        overflow: 'hidden',
-        pointerEvents: 'none',
-        background: 'transparent',
-        color: 'transparent',
-        zIndex: '1'
+        position:      'absolute',
+        top:           textarea.offsetTop + 'px',
+        left:          textarea.offsetLeft + 'px',
+        width:         textarea.offsetWidth + 'px',
+        height:        textarea.offsetHeight + 'px',
+        padding:       cs.padding,
+        border:        cs.border,
+        margin:        cs.margin,
+        fontFamily:    cs.fontFamily,
+        fontSize:      cs.fontSize,
+        fontWeight:    cs.fontWeight,
+        lineHeight:    cs.lineHeight,
+        letterSpacing: cs.letterSpacing,
+        wordSpacing:   cs.wordSpacing,
+        textAlign:     cs.textAlign,
+        whiteSpace:    cs.whiteSpace,
+        wordWrap:      cs.wordWrap,
+        boxSizing:     cs.boxSizing,
+        overflow:      'hidden',
+        background:    'transparent',
+        color:         'transparent',
+        zIndex:        '1'
     });
 
     Object.assign(textarea.style, {
         background: 'transparent',
-        position: 'relative',
-        zIndex: '2'
+        position:   'relative',
+        zIndex:     '2'
     });
 
-    // Add CSS for highlights if not present
-    if (!document.querySelector('#highlight-styles')) {
-        const style = document.createElement('style');
-        style.id = 'highlight-styles';
-        style.textContent = `
-            .highlight {
-                background-color: #ff4d4f !important;  /* red highlight */
-                padding: 1px 2px;
-                border-radius: 2px;
-                color: #000 !important;
-            }
-            .highlights-container {
-                pointer-events: none;
-                user-select: none;
-            }
-        `;
-        document.head.appendChild(style);
-    }
-
-    // Merge and build highlighted HTML
-    const mergedRanges = mergeRanges(ranges);
-
-    let highlighted = '';
+    // Build HTML, tagging each trigger-word span with its start index
+    let html = '';
     let pos = 0;
-
-    for (const [start, end] of mergedRanges) {
-        if (pos < start) {
-            highlighted += escapeHTML(text.slice(pos, start));
-        }
-        // highlight range is inclusive, so +1 on end index
-        highlighted += `<span class="highlight">${escapeHTML(text.slice(start, end + 1))}</span>`;
+    for (const [start, end] of currentRanges) {
+        if (pos < start) html += escapeHTML(text.slice(pos, start));
+        html += `<span class="trigger-word" data-start="${start}">${escapeHTML(text.slice(start, end + 1))}</span>`;
         pos = end + 1;
     }
+    if (pos < text.length) html += escapeHTML(text.slice(pos));
 
-    if (pos < text.length) {
-        highlighted += escapeHTML(text.slice(pos));
-    }
-
-    container.innerHTML = highlighted;
+    container.innerHTML = html;
     parent.insertBefore(container, textarea);
 
-    console.log("[Highlight] Applied highlights container");
+    // Attach mouse tracking to the textarea itself (it's on top)
+    textarea.removeEventListener('mousemove',  onTextareaMouseMove);
+    textarea.removeEventListener('mouseleave', onTextareaMouseLeave);
+    textarea.addEventListener('mousemove',  onTextareaMouseMove);
+    textarea.addEventListener('mouseleave', onTextareaMouseLeave);
+
+    console.log("[Highlight] Applied underline highlights");
     return container;
 }
 
-// Debounced update function
 export const updateHighlights = debounce(async () => {
-    console.log("[Highlight] Update highlights called");
-
     const enabled = await checkHighlightingEnabled();
-    console.log("[Highlight] Enabled:", enabled, "Mode:", appState.mode);
-
-    if (appState.mode !== 1 || !enabled) {
-        console.log("[Highlight] Skipping - mode or feature disabled");
-        return;
-    }
+    if (appState.mode !== 1 || !enabled) return;
 
     const textArea = domManager.get('textArea');
-    if (!textArea) {
-        console.warn("[Highlight] TextArea not found");
-        return;
-    }
+    if (!textArea) return;
 
     const text = textArea.value;
     if (!text?.trim()) {
-        console.log("[Highlight] No text to highlight");
         removeHighlights();
         return;
     }
 
     try {
-        console.log("[Highlight] Getting highlights for text:", text.substring(0, 50) + "...");
         const ranges = await getHighlights(text);
-        console.log("[Highlight] Received ranges:", ranges);
-
         if (ranges.length > 0) {
             applyHighlights(textArea, ranges);
         } else {
-            console.log("[Highlight] No ranges returned");
             removeHighlights();
         }
     } catch (error) {
@@ -234,142 +419,93 @@ export const updateHighlights = debounce(async () => {
     }
 }, 300);
 
-// Remove existing highlights
 export function removeHighlights() {
     const textArea = domManager.get('textArea');
     if (!textArea) return;
 
-    const highlightsContainer = textArea.parentNode?.querySelector('.highlights-container');
-    if (highlightsContainer) {
-        highlightsContainer.remove();
-        console.log("[Highlight] Removed highlights");
-    }
+    const container = textArea.parentNode?.querySelector('.highlights-container');
+    if (container) container.remove();
 
-    // Reset textarea background
     textArea.style.background = '';
+    textArea.removeEventListener('mousemove',  onTextareaMouseMove);
+    textArea.removeEventListener('mouseleave', onTextareaMouseLeave);
+
+    currentRanges = [];
+    hoveredRange  = null;
+    hideTooltip();
 }
 
-// Sync scroll positions
 export function syncScroll() {
     const textArea = domManager.get('textArea');
     if (!textArea) return;
-
-    const highlightsContainer = textArea.parentNode?.querySelector('.highlights-container');
-    if (highlightsContainer) {
-        highlightsContainer.scrollTop = textArea.scrollTop;
-        highlightsContainer.scrollLeft = textArea.scrollLeft;
+    const container = textArea.parentNode?.querySelector('.highlights-container');
+    if (container) {
+        container.scrollTop  = textArea.scrollTop;
+        container.scrollLeft = textArea.scrollLeft;
     }
 }
 
-// Setup event listeners
 export async function initializeHighlighting() {
-    console.log("[Highlight] Initializing highlighting...");
-
+    console.log("[Highlight] Initializing...");
     const enabled = await checkHighlightingEnabled();
-    console.log("[Highlight] Feature enabled:", enabled, "Mode:", appState.mode);
+    if (appState.mode !== 1 || !enabled) return;
 
-    if (appState.mode !== 1 || !enabled) {
-        console.log("[Highlight] Skipping init: mode or feature off.");
-        return;
-    }
-
-    const waitForTextArea = () => {
-        return new Promise((resolve) => {
-            const checkTextArea = () => {
-                const textArea = domManager.get('textArea');
-                if (textArea) {
-                    resolve(textArea);
-                } else {
-                    setTimeout(checkTextArea, 100);
-                }
-            };
-            checkTextArea();
-        });
-    };
+    const waitForTextArea = () => new Promise(resolve => {
+        const check = () => {
+            const ta = domManager.get('textArea');
+            if (ta) resolve(ta);
+            else setTimeout(check, 100);
+        };
+        check();
+    });
 
     const textArea = await waitForTextArea();
-    console.log("[Highlight] TextArea found, setting up listeners");
-
     textArea.removeEventListener('input', updateHighlights);
     textArea.removeEventListener('scroll', syncScroll);
-
     textArea.addEventListener('input', updateHighlights);
     textArea.addEventListener('scroll', syncScroll);
 
     const handleResize = () => {
-        const highlightsContainer = textArea.parentNode?.querySelector('.highlights-container');
-        if (highlightsContainer) {
-            Object.assign(highlightsContainer.style, {
-                top: textArea.offsetTop + 'px',
-                left: textArea.offsetLeft + 'px',
-                width: textArea.offsetWidth + 'px',
+        const container = textArea.parentNode?.querySelector('.highlights-container');
+        if (container) {
+            Object.assign(container.style, {
+                top:    textArea.offsetTop + 'px',
+                left:   textArea.offsetLeft + 'px',
+                width:  textArea.offsetWidth + 'px',
                 height: textArea.offsetHeight + 'px'
             });
         }
     };
-
     window.removeEventListener('resize', handleResize);
     window.addEventListener('resize', handleResize);
 
     console.log("[Highlight] Initialization complete");
 }
 
-// Manually trigger highlighting
 export async function triggerHighlighting() {
-    console.log("[Highlight] Manually triggering highlighting");
-
     const enabled = await checkHighlightingEnabled();
-    if (appState.mode !== 1 || !enabled) {
-        console.log("[Highlight] Cannot trigger - mode or feature disabled");
-        return;
-    }
+    if (appState.mode !== 1 || !enabled) return;
 
     const textArea = domManager.get('textArea');
-    if (!textArea) {
-        console.warn("[Highlight] TextArea not found for manual trigger");
-        return;
-    }
+    if (!textArea) return;
 
     const text = textArea.value;
-    if (!text?.trim()) {
-        console.log("[Highlight] No text to highlight");
-        return;
-    }
+    if (!text?.trim()) return;
 
     try {
-        console.log("[Highlight] Manually getting highlights for:", text.substring(0, 50) + "...");
         const ranges = await getHighlights(text);
-        console.log("[Highlight] Manual trigger received ranges:", ranges);
-
-        if (ranges.length > 0) {
-            applyHighlights(textArea, ranges);
-        } else {
-            console.log("[Highlight] No highlights returned for manual trigger");
-        }
+        if (ranges.length > 0) applyHighlights(textArea, ranges);
     } catch (error) {
         console.error("[Highlight] Error in manual trigger:", error);
     }
 }
 
-// Render function for the intervention system
 export function renderHighlighting(data) {
-    console.log("[Highlight] Rendering highlighting intervention:", data);
-    
-    if (!data.enabled || !data.highlight_indices || data.highlight_indices.length === 0) {
-        console.log("[Highlight] No highlights to render");
+    if (!data.enabled || !data.highlight_indices?.length) {
         removeHighlights();
         return;
     }
-    
     const textArea = domManager.get('textArea');
-    if (!textArea) {
-        console.warn("[Highlight] TextArea not found for rendering");
-        return;
-    }
-    
-    // Apply the highlights using the provided ranges
-    const highlightContainer = applyHighlights(textArea, data.highlight_indices);
-    
-    // Note: No text selection logging needed for highlights since they are visual indicators
-    console.log("[Highlight] Applied highlights from intervention system");
+    if (!textArea) return;
+    applyHighlights(textArea, data.highlight_indices);
 }
