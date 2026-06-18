@@ -77,7 +77,7 @@ export function setupInterventionTriggers() {
   }
 
     // 🔘 General onClick intervention buttons
-  const clickableButtons = document.querySelectorAll("button");
+  const clickableButtons = document.querySelectorAll("button:not(#submit-comment)");
   clickableButtons.forEach((btn) => {
     btn.addEventListener("click", async () => {
       // Use existing interaction ID, don't increment it

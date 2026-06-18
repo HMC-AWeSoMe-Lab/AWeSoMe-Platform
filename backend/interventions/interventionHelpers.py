@@ -188,7 +188,7 @@ def default_highlight_logic(text):
     return ranges
 
 
-TRIGGER_WORDS = ["stupid", "idiot", "hate", "angry", "dumb", "terrible", "awful"]
+TRIGGER_WORDS = ["stupid", "idiot", "hate", "angry", "dumb", "terrible", "awful", "test"]
 
 def submit_check_logic(text):
     """
@@ -205,6 +205,8 @@ def submit_check_logic(text):
     text_lower = text.lower()
     for word in TRIGGER_WORDS:
         if word in text_lower:
+            if word == "angry":
+                return "Your message seems emotional. Want to revise?"
             return "Your message may come across as harsh. Consider revising before posting."
 
     return None

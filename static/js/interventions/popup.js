@@ -12,6 +12,9 @@ import { eventHandlers } from '../events/eventHandlers.js';
  * @returns {void}
  */
 export function renderPopup(data) {
+  // Don't render a second popup if a blocking popup is already shown
+  if (document.getElementById("popup")) return;
+
   const wrapper = document.createElement("div");
   wrapper.innerHTML = data.html;  // inject full HTML from backend
   const popupElement = wrapper.firstElementChild;

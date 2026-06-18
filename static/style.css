@@ -1,7 +1,7 @@
 :root {
     --textColor: #333;
     --fontFamily: sans-serif;
-    --fontSize: 10px;
+    --fontSize: 16px;
     --siteBackgroundColor: white;
     --commentBackgroundColor: lightgray;
     --borderColor: #ccc;
@@ -188,6 +188,8 @@ body {
 
 .comment__card p{
   color: black;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 /* Welcome Popup Styles */

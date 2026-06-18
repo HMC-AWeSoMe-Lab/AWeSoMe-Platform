@@ -27,11 +27,6 @@ INTERVENTIONS = [
         trigger_event="onText",
         highlight_func=target_phrase_highlight_logic
     ),
-    PopupIntervention(
-        trigger_event="onClick",
-        text_func=default_popup_logic,
-        button_id="submit-comment"
-    ),
     HighlightingIntervention(
         trigger_event="onText",
         highlight_func=simple_highlight_logic
@@ -373,5 +368,3 @@ def get_group():
 # Prevents the Flask app from running when imported as a module
 if __name__ == '__main__':
     app.run(debug=True, port=5001, use_reloader=False)
-
-

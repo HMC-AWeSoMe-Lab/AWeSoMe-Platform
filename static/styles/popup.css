@@ -52,19 +52,19 @@
 }
 
 .popup-post-anyway {
-  background-color: #007BFF;
-  color: white;
-}
-
-.popup-post-anyway:hover {
-  background-color: #0056b3;
-}
-
-.popup-edit {
   background-color: #e9ecef;
   color: #333;
 }
 
-.popup-edit:hover {
+.popup-post-anyway:hover {
   background-color: #d6d8db;
+}
+
+.popup-edit {
+  background-color: #007BFF;
+  color: white;
+}
+
+.popup-edit:hover {
+  background-color: #0056b3;
 }

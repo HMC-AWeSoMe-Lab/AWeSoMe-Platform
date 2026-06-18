@@ -110,21 +110,26 @@ async function postComment(commentContent) {
 }
 
 function showBlockingPopup(data, commentContent) {
+    // Don't show a second popup if one is already open
+    if (document.getElementById("popup")) return;
+
     const wrapper = document.createElement("div");
     wrapper.innerHTML = data.html;
     const popupElement = wrapper.firstElementChild;
     document.body.appendChild(popupElement);
 
-    document.getElementById("popup-post-anyway-button")?.addEventListener("click", async (event) => {
+    popupElement.querySelector("#popup-post-anyway-button")?.addEventListener("click", async (event) => {
         event.preventDefault();
         event.stopPropagation();
+        event.stopImmediatePropagation();
         popupElement.remove();
         await postComment(commentContent);
     });
 
-    document.getElementById("popup-edit-button")?.addEventListener("click", (event) => {
+    popupElement.querySelector("#popup-edit-button")?.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
+        event.stopImmediatePropagation();
         popupElement.remove();
     });
 }
