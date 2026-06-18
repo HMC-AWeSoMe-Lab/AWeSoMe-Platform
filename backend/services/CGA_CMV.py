@@ -43,22 +43,82 @@ def display_convo(c, comment_content=None):
         anon_users = bool(settings["commentBox"]["anon_users"])
     
     reply_list = []
-    depth_counter = 1
     reply_button_html = ""
     score_html = ""
     timestamp_html = ""
     speakerCount = 1
 
-    # BUILD SORTED UTTERANCES — root first
+    # BUILD TREE-ORDERED UTTERANCES — depth-first traversal so each
+    # reply is grouped directly under its parent (and ahead of any
+    # "uncle" branches), instead of just sorting by depth.
     all_utts = list(c.iter_utterances())
-    root = [u for u in all_utts if u.reply_to is None]
-    non_root = [u for u in all_utts if u.reply_to is not None]
-    sorted_utts = root + non_root
+
+    # Map utt_id -> utterance, and utt_id -> list of its direct replies
+    utt_map = {u.id: u for u in all_utts}
+    children_map = {}
+    roots = []
+    for u in all_utts:
+        if u.reply_to is not None and u.reply_to in utt_map:
+            children_map.setdefault(u.reply_to, []).append(u)
+        else:
+            # reply_to is None, or points to an utterance we don't have
+            # (e.g. a deleted parent) — treat as a root for display purposes
+            roots.append(u)
+
+    # Guard against malformed cyclic reply_to chains (shouldn't happen with
+    # real corpora, but avoids an infinite recursion / stack overflow if it does)
+    def _has_cycle(start_id):
+        seen = set()
+        current_id = start_id
+        while current_id is not None:
+            if current_id in seen:
+                return True
+            seen.add(current_id)
+            parent = utt_map.get(current_id)
+            current_id = parent.reply_to if parent else None
+        return False
+
+    for u in list(all_utts):
+        if u not in roots and _has_cycle(u.id):
+            # break the cycle by promoting this utterance to a root
+            children_map[u.reply_to].remove(u)
+            roots.append(u)
+
+    # Keep sibling order chronological within each branch
+    def _sort_key(u):
+        return u.timestamp if u.timestamp is not None else float('inf')
+
+    roots.sort(key=_sort_key)
+    for sibs in children_map.values():
+        sibs.sort(key=_sort_key)
+
+    # Pre-compute each utterance's true tree depth (root = 1) for indentation
+    depth_map = {}
+
+    def assign_depths(utt, depth):
+        depth_map[utt.id] = depth
+        for child in children_map.get(utt.id, []):
+            assign_depths(child, depth + 1)
+
+    for root in roots:
+        assign_depths(root, 1)
+
+    # Walk the tree depth-first (pre-order): a node, then all its
+    # descendants, before moving on to its next sibling.
+    sorted_utts = []
+
+    def visit(utt):
+        sorted_utts.append(utt)
+        for child in children_map.get(utt.id, []):
+            visit(child)
+
+    for root in roots:
+        visit(root)
+
+    def get_depth(utt):
+        return depth_map.get(utt.id, 1)
 
     # ADD SUMMARY AS FIRST ITEM
-    # Uses the cached content summary (generated once by getTrajectorySummary
-    # in generateSummary.py and stored under "conversation_summary") instead
-    # of regenerating it on every page load.
     summary = c.meta.get("conversation_summary", "")
     summary = summary.strip()
 
@@ -76,7 +136,8 @@ def display_convo(c, comment_content=None):
     for utt in sorted_utts:
         user_dict[str(utt.speaker_id)] = ""
     
-    # SECOND LOOP — build HTML
+    # SECOND LOOP — build HTML using true tree depth for indentation
+    is_first = True
     for utt in sorted_utts:
         if anon_users:
             utt_ids.append(str(utt.speaker_id))
@@ -104,27 +165,30 @@ def display_convo(c, comment_content=None):
 
         formatted_text = processed_quotes(utt.text)
 
-        # give first utterance a fixed ID
-        if depth_counter == 1:
-            card_id = "first-comment"
-        else:
-            card_id = str(utt.id)
+        # Use true tree depth for indentation instead of a flat counter
+        depth = get_depth(utt)
+        margin = depth * indent_size
 
-        reply_list.append("<div class=\"comment__container\" style=\"margin-left:"+ str(depth_counter) + "rem; margin-top: 1rem;\">" + 
+        card_id = "first-comment" if is_first else str(utt.id)
+        is_first = False
+
+        reply_list.append("<div class=\"comment__container\" style=\"margin-left:"+ str(margin) + "rem; margin-top: 1rem;\">" + 
                           "<div id=\"" + card_id + "\" class=\"comment__card\">"
                           + "<h3 class=\"comment__title\">" + user_dict[str(utt.speaker_id)] + "</h3>"
                           + markdown.markdown(formatted_text, extensions=['extra'], output_format='html5') 
                           + "<div class=\"comment-card-footer\">" + reply_button_html + score_html + timestamp_html +
                           "</div>" + "</div>" + "</div>")
-        depth_counter += indent_size
 
     # OPTIONAL: Add user comments at the end
     if comment_content:
         new_comment_score_html = "<div> Score: 0</div>" if display_score else ""
+        # User replies go one level deeper than the deepest utterance
+        max_depth = max((get_depth(u) for u in sorted_utts), default=1)
+        user_margin = (max_depth + 1) * indent_size
         for comment in comment_content:
             formatted = markdown.markdown(processed_quotes(comment), extensions=['extra'])
             reply_list.append(f'''
-                <div class="comment__container" style="margin-left:{depth_counter}rem; margin-top: 1rem;">
+                <div class="comment__container" style="margin-left:{user_margin}rem; margin-top: 1rem;">
                     <div id="UserID" class="comment__card">
                         <h3 class="comment__title">SODA</h3>
                         {formatted}
