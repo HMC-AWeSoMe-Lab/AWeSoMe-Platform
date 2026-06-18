@@ -5,7 +5,7 @@
         "fontSize": "16px",
         "siteBackgroundColor": "white",
         "commentBackgroundColor": "white",
-        "commentIndentation": 1
+        "commentIndentation": 0.75
     },
     "commentBox": {
         "borderColor": "gray",

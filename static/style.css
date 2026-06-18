@@ -58,6 +58,7 @@ body {
     border: 1px solid var(--borderColor); 
     border-radius: 0.5rem;
     width: 100%; 
+    min-width: 280px;
     /* box-shadow: 0 0 50px rgba(0, 0, 0, 0.1); */
 }
 
@@ -104,6 +105,11 @@ body {
   border: 1px solid #aaa;
   border-radius: 25px;
   background-color: white;
+  box-sizing: border-box;
+}
+
+#reply-box {
+  /* Width and margin-left are set dynamically in JS to cancel parent indentation */
   box-sizing: border-box;
 }
 

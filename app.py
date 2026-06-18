@@ -90,7 +90,26 @@ with open(settings_path, "r") as file:
     placeholder_text = settings["commentBox"]["placeholderText"]
     submit_button_text = settings["commentBox"]["submitButtonText"]
 
-@app.route('/', methods=['POST', 'GET'])
+@app.route('/')
+def root():
+    """
+    Root route — redirects to the welcome page.
+    """
+    return redirect(url_for('welcome'))
+
+
+@app.route('/welcome', methods=['GET'])
+def welcome():
+    """
+    Render the welcome page shown before the main conversation interface.
+
+    :return: Rendered welcome HTML template
+    :rtype: str
+    """
+    return render_template('welcome.html')
+
+
+@app.route('/chat', methods=['POST', 'GET'])
 def index():
     """
     Main route handler for the home page.

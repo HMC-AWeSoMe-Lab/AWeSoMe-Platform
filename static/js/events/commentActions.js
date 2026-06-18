@@ -18,6 +18,10 @@ export async function toggleCommentBox(btn) {
         if (commentContainer) {
             activeReplyContainer = commentContainer;
             commentContainer.insertAdjacentElement('afterend', replyBox);
+            // Cancel out the indentation so reply-box left edge aligns with the thread
+            const parentMargin = parseFloat(commentContainer.style.marginLeft) || 0;
+            replyBox.style.marginLeft = `-${parentMargin}rem`;
+            replyBox.style.width = `calc(100% + ${parentMargin}rem)`;
         }
     }
 
