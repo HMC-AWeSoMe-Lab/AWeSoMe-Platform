@@ -8,9 +8,82 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='styles/popup.css') }}">
 <link rel="stylesheet" href="/static/styles/feedbackBox.css">
 <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+  #reading-timer-bar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 1000;
+    background: #f0f0f0;
+    border-bottom: 1px solid #ddd;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    padding: 0 1rem;
+    gap: 0.75rem;
+    font-family: 'Lato', sans-serif;
+    font-size: 0.85rem;
+    color: #555;
+  }
+  #reading-timer-bar .timer-label {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  #reading-timer-bar .progress-track {
+    flex: 1;
+    height: 6px;
+    background: #ddd;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  #reading-timer-bar .progress-fill {
+    height: 100%;
+    width: 100%;
+    background: #2563eb;
+    border-radius: 3px;
+    transition: width 1s linear;
+  }
+  #reading-timer-bar.done {
+    background: #eafaf1;
+    border-bottom-color: #a8e6c1;
+    color: #2d7a4f;
+  }
+  #reading-timer-bar.done .progress-fill {
+    background: #34c76a;
+  }
+  body { padding-top: 44px; }
+
+  .reply-footer {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+  }
+  .reply-footer-left {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .reply-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin-left: auto;
+  }
+  .submit-comment:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+</style>
 {% endblock %}
 
 {% block body %}
+
+<div id="reading-timer-bar">
+  <span class="timer-label" id="timer-label">Please read for <span id="timer-countdown"></span></span>
+  <div class="progress-track">
+    <div class="progress-fill" id="progress-fill"></div>
+  </div>
+</div>
+
 <div id="comments" class="container">
   <div class="thread" id="thread">
     <div id="trajectory-summary-box" class="trajectory-summary-box" style="display:none;">
@@ -27,7 +100,10 @@
       <form id="comment-form">
         <textarea id="content" class="user-input" placeholder="{{placeholder_text}}"></textarea>
         <div class="reply-footer">
-          <span id="min-length-msg" style="display:none; font-size:0.85rem; color:#999;">The comment is too short.</span>
+          <div class="reply-footer-left">
+            <span id="min-length-msg"  style="display:none; font-size:0.85rem; color:#999;">The comment is too short.</span>
+            <span id="reading-time-msg" style="display:none; font-size:0.85rem; color:#999;">Please spend more time reading the conversation.</span>
+          </div>
           <div class="reply-buttons">
             <button type="button" class="cancel" id="cancel-button">Cancel</button>
             <button type="button" class="submit-comment" id="submit-comment">{{submit_button_text}}</button>
@@ -38,6 +114,52 @@
 
   </div>
 </div>
+
+<script>
+  window.readingTimer = { done: false };
+
+  (function () {
+    const TOTAL = parseInt("{{ reading_seconds }}");
+    let remaining = TOTAL;
+
+    const bar      = document.getElementById('reading-timer-bar');
+    const label    = document.getElementById('timer-label');
+    const countdown= document.getElementById('timer-countdown');
+    const fill     = document.getElementById('progress-fill');
+
+    function fmt(s) {
+      const m = Math.floor(s / 60), sec = s % 60;
+      return m > 0 ? `${m}m ${sec.toString().padStart(2,'0')}s` : `${sec}s`;
+    }
+
+    // Paint initial state before first tick
+    countdown.textContent = fmt(remaining);
+    fill.style.transition = 'none';
+    fill.style.width = '100%';
+
+    setTimeout(function () {
+      fill.style.transition = 'width 1s linear';
+
+      var tick = setInterval(function () {
+        remaining -= 1;
+        countdown.textContent = fmt(remaining);
+        fill.style.width = ((remaining / TOTAL) * 100) + '%';
+
+        if (remaining <= 0) {
+          clearInterval(tick);
+          fill.style.width = '0%';
+          bar.classList.add('done');
+          label.textContent = 'You may now reply ✓';
+          window.readingTimer.done = true;
+
+          // Re-evaluate submit button state
+          var ta = document.getElementById('content');
+          if (ta) ta.dispatchEvent(new Event('input'));
+        }
+      }, 1000);
+    }, 200);
+  })();
+</script>
 
 <script type="module" src="{{ url_for('static', filename='js/main.js') }}"></script>
 {% endblock %}

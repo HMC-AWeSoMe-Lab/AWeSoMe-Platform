@@ -11,6 +11,10 @@ const MIN_COMMENT_LENGTH = 10;
 
 let activeReplyContainer = null;
 
+function readingTimeDone() {
+    return window.readingTimer?.done === true;
+}
+
 export async function toggleCommentBox(btn) {
     appState.updateTimestamp();
 
@@ -32,7 +36,6 @@ export async function toggleCommentBox(btn) {
     const textArea = document.getElementById('content');
     if (textArea) {
         setTimeout(() => textArea.focus(), 50);
-        // Set initial button state whenever the box opens
         updateSubmitButton(textArea.value);
     }
 
@@ -56,33 +59,43 @@ export async function toggleCommentBox(btn) {
     }
 }
 
-// Call once during app init to wire up the live character-count listener
 export function initCommentLengthGuard() {
     const textArea = document.getElementById('content');
-    const submitBtn = document.getElementById('submit-comment');
-    if (!textArea || !submitBtn) return;
-
+    if (!textArea) return;
     textArea.addEventListener('input', () => updateSubmitButton(textArea.value));
 }
 
 function updateSubmitButton(text) {
-    const submitBtn = document.getElementById('submit-comment');
-    const minLengthMsg = document.getElementById('min-length-msg');
+    const submitBtn     = document.getElementById('submit-comment');
+    const minLengthMsg  = document.getElementById('min-length-msg');
+    const readingMsg    = document.getElementById('reading-time-msg');
     if (!submitBtn) return;
 
-    const tooShort = text.trim().length < MIN_COMMENT_LENGTH;
-    submitBtn.disabled = tooShort;
-    submitBtn.title = tooShort ? `Reply must be at least ${MIN_COMMENT_LENGTH} characters` : '';
-    if (minLengthMsg) minLengthMsg.style.display = tooShort && text.length > 0 ? 'inline' : 'none';
+    const tooShort    = text.trim().length < MIN_COMMENT_LENGTH;
+    const timerActive = !readingTimeDone();
+    const blocked     = tooShort || timerActive;
+
+    submitBtn.disabled = blocked;
+
+    // "too short" message: only when box is non-empty but short
+    if (minLengthMsg)
+        minLengthMsg.style.display = (tooShort && text.length > 0) ? 'block' : 'none';
+
+    // "read more carefully" message: only when timer is still running
+    if (readingMsg)
+        readingMsg.style.display = timerActive ? 'block' : 'none';
 }
 
 export async function handleCommentSubmit() {
     const textArea = domManager.get('textArea');
-    const hoverBox = domManager.get('hoverBox');
     const commentContent = textArea.value;
 
-    // Safety-net guard (covers any path that bypasses the button state)
+    // Hard guards — belt and suspenders
     if (commentContent.trim().length < MIN_COMMENT_LENGTH) {
+        updateSubmitButton(commentContent);
+        return;
+    }
+    if (!readingTimeDone()) {
         updateSubmitButton(commentContent);
         return;
     }

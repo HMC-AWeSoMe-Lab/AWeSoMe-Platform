@@ -10,6 +10,7 @@ from backend.interventions.highlighting import HighlightingIntervention
 from backend.interventions.interventionHelpers import *
 import os
 import json
+import re
 
 
 # Initialize your interventions here !
@@ -57,8 +58,7 @@ INTERVENTIONS = [
 app = Flask(__name__)
 
 # need secret key to use session stuff
-import os
-app.secret_key = os.urandom(24)   
+app.secret_key = os.urandom(24)
 
 
 # Cache to store conversations by ID
@@ -127,7 +127,7 @@ def index():
         print(f"🎲 New user assigned to mode: {session['mode']} ({'Treatment' if session['mode'] == 1 else 'Control'})")
     else:
         print(f"📋 Existing user in mode: {session['mode']} ({'Treatment' if session['mode'] == 1 else 'Control'})")
-    
+
     # Initializes a new conversation from the corpus
     # and caches it by its ID for later use.
     new_convo = get_convo()
@@ -140,13 +140,19 @@ def index():
     # Generate HTML for the conversation to pass to the HTML template
     reply_list = display_convo(new_convo)
 
+    # Compute reading time: 1 minute per 500 words
+    all_text = " ".join(utt.text for utt in new_convo.iter_utterances() if utt.text)
+    word_count = len(re.findall(r'\w+', all_text))
+    reading_seconds = max(10, (word_count / 1000) * 60)
+
     return render_template(
         'index.html',
         reply_list=reply_list,
         placeholder_text=placeholder_text,
         reply_id=get_reply_id(),
         convo_depth=get_convo_depth_css(reply_list),
-        submit_button_text=submit_button_text
+        submit_button_text=submit_button_text,
+        reading_seconds=reading_seconds
     )
 
 
@@ -165,8 +171,8 @@ def get_all_interventions():
     # Check if user is in treatment group before processing interventions
     if not is_treatment():
         return jsonify([])
-    
-    # Grab data from the request 
+
+    # Grab data from the request
     data = request.get_json() or {}
     # Grab the current conversation from the cache
     convo = convo_cache.get(session.get('convo_id'))
@@ -189,18 +195,15 @@ def get_all_interventions():
             if result is not None:
                 results.append(result)
         except ValueError as e:
-            # Handle intervention configuration errors
             error_message = f"Intervention Configuration Error: {str(e)}"
             print(f"❌ {error_message}")
             return jsonify({"error": error_message, "interventionError": True}), 400
         except Exception as e:
-            # Handle unexpected errors
             error_message = f"Unexpected intervention error: {str(e)}"
             print(f"❌ {error_message}")
             return jsonify({"error": error_message, "interventionError": True}), 500
 
     return jsonify(results)
-
 
 
 @app.route('/comment', methods=['POST'])
@@ -215,20 +218,20 @@ def submit_comment():
     :rtype: flask.Response
     """
     data = request.get_json()
-    comment = data.get('comment') # retrieves the comment content from the JSON data
+    comment = data.get('comment')
 
     # Grab current session's convo
     convo_id = session.get('convo_id')
     convo = convo_cache.get(convo_id)
-    
+
     # Ensures the comment is not empty before returning a response
     if comment:
         print(f"Comment: {comment}")
         html_snippets = display_convo(convo, comment_content=[comment])
         # Grab only the HTML for the new comment
-        new_comment_html = html_snippets[-1]  
+        new_comment_html = html_snippets[-1]
         return jsonify({'html': new_comment_html})
-    
+
     return jsonify({'error': 'No comment'})
 
 @app.route('/reply_style', methods=['GET'])
@@ -242,7 +245,7 @@ def reply_style():
     convo_id = session.get('convo_id')
     convo = convo_cache.get(convo_id)
 
-    return jsonify({'convoDepth': get_convo_depth_css(display_convo(convo))})   
+    return jsonify({'convoDepth': get_convo_depth_css(display_convo(convo))})
 
 
 @app.route('/get_id', methods=['GET'])
@@ -254,11 +257,8 @@ def get_next_interaction_id():
     :rtype: flask.Response
     :raises: Returns 400 if there is an issue with the interaction ID table
     """
-    # updates the latest interaction ID in the database
     interaction_id = update_latest_interaction_id()
-
-    # sends new id to script.js
-    data = {'interaction_id' : interaction_id}
+    data = {'interaction_id': interaction_id}
     return jsonify(data)
 
 
@@ -273,26 +273,19 @@ def start():
     :return: JSON response with completion status or error
     :rtype: flask.Response
     """
-    # grabs the latest interaction ID and action type from the request
     data = request.get_json()
-    latest_id = data.get('id') 
+    latest_id = data.get('id')
     action_type = data.get('actionType')
     current_timestamp = data.get('currentTimestamp')
 
-    # establishes connection, inserts the action type and 
-    # latest ID into the posts table, closes connection
     insert_posts(action_type, latest_id, current_timestamp)
 
-    # ensures not fiempty
     if latest_id and action_type and current_timestamp:
-         
-         # debugging print statements
-         print(f"latest_id: {latest_id}")
-         print(f"action_type: {action_type}")
-         print(f"current_timestamp: {current_timestamp}")
-         # if successful, returns the latest ID to the frontend
-         return jsonify({"Complete": latest_id})
-    
+        print(f"latest_id: {latest_id}")
+        print(f"action_type: {action_type}")
+        print(f"current_timestamp: {current_timestamp}")
+        return jsonify({"Complete": latest_id})
+
     return "Error", 400
 
 
@@ -307,23 +300,17 @@ def reply_action():
     :return: JSON response with completion status or error
     :rtype: flask.Response
     """
-    # grabs the latest interaction ID and action type from the request
     data = request.get_json()
-    latest_id = data.get('id') 
+    latest_id = data.get('id')
     action_type = data.get('actionType')
     current_timestamp = data.get('currentTimestamp')
     button_id = data.get('buttonID')
 
-    # establishes connection, inserts the action type and 
-    # latest ID into the posts table, closes connection
     insert_posts(action_type, latest_id, current_timestamp, payload=button_id)
-    
 
     if latest_id and action_type and current_timestamp:
         return jsonify({"Complete": latest_id})
     return "Error", 400
-
-
 
 
 @app.route('/dump_payload', methods=['POST'])
@@ -337,17 +324,14 @@ def dump_payload():
     :return: JSON response with completion status or error
     :rtype: flask.Response
     """
-    # grab payload queue full of actions + their content
-    # e.g., KEYSTROKE | 'h' | ...
     data = request.get_json()
-
     dump_payloads_db(data)
 
     if data:
         return jsonify({"Complete": data})
     return "Error", 400
 
-# COMPLETED: interventions are now only activated if mode == 1 (treatment group)
+
 @app.route('/mode', methods=['GET', 'POST'])
 def get_group():
     """
@@ -360,10 +344,9 @@ def get_group():
     :return: JSON response with mode information
     :rtype: flask.Response
     """
-    # Assign mode to session if not already assigned (ensures randomization per user)
     if 'mode' not in session:
         session['mode'] = add_intervention()
-    
+
     print("mode: " + str(session.get('mode')))
 
     user_mode = session['mode']
@@ -378,11 +361,8 @@ def get_group():
 
     print(f"User assigned to mode: {user_mode} ({'Treatment' if user_mode == 1 else 'Control'})")
 
-    # sends group to script.js
     data = {'mode': user_mode}
-    
     return jsonify(data)
-
 
 
 # Prevents the Flask app from running when imported as a module
