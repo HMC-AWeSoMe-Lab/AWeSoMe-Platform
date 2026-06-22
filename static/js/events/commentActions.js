@@ -7,6 +7,8 @@ import { clearAllFeedbackBoxes } from '../interventions/feedbackBox.js';
 import { triggerInterventions } from '../main.js';
 import { removeHighlights } from '../interventions/highlighting.js';
 
+const MIN_COMMENT_LENGTH = 10;
+
 let activeReplyContainer = null;
 
 export async function toggleCommentBox(btn) {
@@ -19,7 +21,6 @@ export async function toggleCommentBox(btn) {
         if (commentContainer) {
             activeReplyContainer = commentContainer;
             commentContainer.insertAdjacentElement('afterend', replyBox);
-            // Cancel out the indentation so reply-box left edge aligns with the thread
             const parentMargin = parseFloat(commentContainer.style.marginLeft) || 0;
             replyBox.style.marginLeft = `-${parentMargin}rem`;
             replyBox.style.width = `calc(100% + ${parentMargin}rem)`;
@@ -29,11 +30,14 @@ export async function toggleCommentBox(btn) {
     replyBox.style.display = 'block';
 
     const textArea = document.getElementById('content');
-    if (textArea) setTimeout(() => textArea.focus(), 50);
+    if (textArea) {
+        setTimeout(() => textArea.focus(), 50);
+        // Set initial button state whenever the box opens
+        updateSubmitButton(textArea.value);
+    }
 
     setTimeout(() => repositionAllElements(), 50);
 
-    // Fire the popup intervention for treatment group (backend gates on is_treatment())
     triggerInterventions("", appState.latestID, "onClick", "reply-btn");
 
     try {
@@ -52,10 +56,36 @@ export async function toggleCommentBox(btn) {
     }
 }
 
+// Call once during app init to wire up the live character-count listener
+export function initCommentLengthGuard() {
+    const textArea = document.getElementById('content');
+    const submitBtn = document.getElementById('submit-comment');
+    if (!textArea || !submitBtn) return;
+
+    textArea.addEventListener('input', () => updateSubmitButton(textArea.value));
+}
+
+function updateSubmitButton(text) {
+    const submitBtn = document.getElementById('submit-comment');
+    if (!submitBtn) return;
+
+    const tooShort = text.trim().length < MIN_COMMENT_LENGTH;
+    submitBtn.disabled = tooShort;
+    submitBtn.title = tooShort
+        ? `Reply must be at least ${MIN_COMMENT_LENGTH} characters`
+        : '';
+}
+
 export async function handleCommentSubmit() {
     const textArea = domManager.get('textArea');
     const hoverBox = domManager.get('hoverBox');
     const commentContent = textArea.value;
+
+    // Safety-net guard (covers any path that bypasses the button state)
+    if (commentContent.trim().length < MIN_COMMENT_LENGTH) {
+        updateSubmitButton(commentContent);
+        return;
+    }
 
     const res = await fetch('/interventions', {
         method: 'POST',
@@ -97,12 +127,11 @@ async function postComment(commentContent) {
 
         if (postData.html) {
             const replyBox = document.getElementById('reply-box');
-            // Insert new comment directly above the reply-box so it appears
-            // right under the comment that was replied to
             replyBox.insertAdjacentHTML('beforebegin', postData.html);
 
             textArea.value = "";
             removeHighlights();
+            updateSubmitButton("");
             replyBox.style.display = "none";
             if (hoverBox) hoverBox.style.display = "none";
             activeReplyContainer = null;
@@ -116,7 +145,6 @@ async function postComment(commentContent) {
 }
 
 function showBlockingPopup(data, commentContent) {
-    // Don't show a second popup if one is already open
     if (document.getElementById("popup")) return;
 
     const wrapper = document.createElement("div");

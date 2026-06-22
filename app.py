@@ -57,7 +57,8 @@ INTERVENTIONS = [
 app = Flask(__name__)
 
 # need secret key to use session stuff
-app.secret_key = "secret_key"    
+import os
+app.secret_key = os.urandom(24)   
 
 
 # Cache to store conversations by ID

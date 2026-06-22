@@ -15,6 +15,11 @@ import { getId, idToMode, start, initializeReplyStyle } from './services/apiServ
 import { appState } from './services/appState.js';
 import { pushToPayloadQueue } from './services/payloadQueue.js';
 
+import { initCommentLengthGuard } from './events/commentActions.js';
+
+// alongside your other init calls e.g. initializeHighlighting(), etc.
+initCommentLengthGuard();
+
 /**
  * Logs intervention text to the payload queue for database storage.
  * Automatically extracts text from any intervention type in a generic way.

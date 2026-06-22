@@ -16,7 +16,10 @@
     box-sizing: border-box;
 }
 
-
+.submit-comment:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
 
 html {
     font-family: var(--fontFamily);
