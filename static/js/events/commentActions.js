@@ -67,13 +67,13 @@ export function initCommentLengthGuard() {
 
 function updateSubmitButton(text) {
     const submitBtn = document.getElementById('submit-comment');
+    const minLengthMsg = document.getElementById('min-length-msg');
     if (!submitBtn) return;
 
     const tooShort = text.trim().length < MIN_COMMENT_LENGTH;
     submitBtn.disabled = tooShort;
-    submitBtn.title = tooShort
-        ? `Reply must be at least ${MIN_COMMENT_LENGTH} characters`
-        : '';
+    submitBtn.title = tooShort ? `Reply must be at least ${MIN_COMMENT_LENGTH} characters` : '';
+    if (minLengthMsg) minLengthMsg.style.display = tooShort && text.length > 0 ? 'inline' : 'none';
 }
 
 export async function handleCommentSubmit() {

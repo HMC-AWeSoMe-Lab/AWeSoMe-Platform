@@ -26,9 +26,12 @@
     <div id="reply-box" class="text-area" style="display:none;">
       <form id="comment-form">
         <textarea id="content" class="user-input" placeholder="{{placeholder_text}}"></textarea>
-        <div class="comment-actions">
-          <button type="button" class="cancel" id="cancel-button">Cancel</button>
-          <button type="button" class="submit-comment" id="submit-comment">{{submit_button_text}}</button>
+        <div class="reply-footer">
+          <span id="min-length-msg" style="display:none; font-size:0.85rem; color:#999;">The comment is too short.</span>
+          <div class="reply-buttons">
+            <button type="button" class="cancel" id="cancel-button">Cancel</button>
+            <button type="button" class="submit-comment" id="submit-comment">{{submit_button_text}}</button>
+          </div>
         </div>
       </form>
     </div>

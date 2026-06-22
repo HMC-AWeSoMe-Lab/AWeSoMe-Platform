@@ -21,6 +21,19 @@
     cursor: not-allowed;
 }
 
+.reply-footer {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+}
+
+.reply-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin-left: auto;
+}
+
 html {
     font-family: var(--fontFamily);
     font-size: var(--fontSize);
