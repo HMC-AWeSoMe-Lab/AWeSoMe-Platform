@@ -77,6 +77,12 @@
 
 {% block body %}
 
+<div id="app-config"
+     data-timer-enabled="{{ reading_timer_enabled }}"
+     data-min-comment-length="{{ min_comment_length }}"
+     data-reading-seconds="{{ reading_seconds }}">
+</div>
+
 <div id="reading-timer-bar">
   <span class="timer-label" id="timer-label">Please read for <span id="timer-countdown"></span></span>
   <div class="progress-track">
@@ -101,7 +107,7 @@
         <textarea id="content" class="user-input" placeholder="{{placeholder_text}}"></textarea>
         <div class="reply-footer">
           <div class="reply-footer-left">
-            <span id="min-length-msg"  style="display:none; font-size:0.85rem; color:#999;">The comment is too short.</span>
+            <span id="min-length-msg" style="display:none; font-size:0.85rem; color:#999;">The comment is too short.</span>
             <span id="reading-time-msg" style="display:none; font-size:0.85rem; color:#999;">Please spend more time reading the conversation.</span>
           </div>
           <div class="reply-buttons">
@@ -116,49 +122,60 @@
 </div>
 
 <script>
-  window.readingTimer = { done: false };
+  const _cfg = document.getElementById('app-config').dataset;
 
-  (function () {
-    const TOTAL = parseInt("{{ reading_seconds }}");
-    let remaining = TOTAL;
+  window.INTERVENTION_CONFIG = {
+    readingTimerEnabled: _cfg.timerEnabled === 'True',
+    minCommentLength: parseInt(_cfg.minCommentLength)
+  };
 
-    const bar      = document.getElementById('reading-timer-bar');
-    const label    = document.getElementById('timer-label');
-    const countdown= document.getElementById('timer-countdown');
-    const fill     = document.getElementById('progress-fill');
+  window.readingTimer = { done: !window.INTERVENTION_CONFIG.readingTimerEnabled };
 
-    function fmt(s) {
-      const m = Math.floor(s / 60), sec = s % 60;
-      return m > 0 ? `${m}m ${sec.toString().padStart(2,'0')}s` : `${sec}s`;
-    }
+  if (window.INTERVENTION_CONFIG.readingTimerEnabled) {
+    (function () {
+      const TOTAL = parseInt(_cfg.readingSeconds);
+      let remaining = TOTAL;
 
-    // Paint initial state before first tick
-    countdown.textContent = fmt(remaining);
-    fill.style.transition = 'none';
-    fill.style.width = '100%';
+      const bar      = document.getElementById('reading-timer-bar');
+      const label    = document.getElementById('timer-label');
+      const countdown= document.getElementById('timer-countdown');
+      const fill     = document.getElementById('progress-fill');
 
-    setTimeout(function () {
-      fill.style.transition = 'width 1s linear';
+      function fmt(s) {
+        const m = Math.floor(s / 60), sec = s % 60;
+        return m > 0 ? `${m}m ${sec.toString().padStart(2,'0')}s` : `${sec}s`;
+      }
 
-      var tick = setInterval(function () {
-        remaining -= 1;
-        countdown.textContent = fmt(remaining);
-        fill.style.width = ((remaining / TOTAL) * 100) + '%';
+      countdown.textContent = fmt(remaining);
+      fill.style.transition = 'none';
+      fill.style.width = '100%';
 
-        if (remaining <= 0) {
-          clearInterval(tick);
-          fill.style.width = '0%';
-          bar.classList.add('done');
-          label.textContent = 'You may now reply ✓';
-          window.readingTimer.done = true;
+      setTimeout(function () {
+        fill.style.transition = 'width 1s linear';
 
-          // Re-evaluate submit button state
-          var ta = document.getElementById('content');
-          if (ta) ta.dispatchEvent(new Event('input'));
-        }
-      }, 1000);
-    }, 200);
-  })();
+        var tick = setInterval(function () {
+          remaining -= 1;
+          countdown.textContent = fmt(remaining);
+          fill.style.width = ((remaining / TOTAL) * 100) + '%';
+
+          if (remaining <= 0) {
+            clearInterval(tick);
+            fill.style.width = '0%';
+            bar.classList.add('done');
+            label.textContent = 'You may now reply ✓';
+            window.readingTimer.done = true;
+
+            var ta = document.getElementById('content');
+            if (ta) ta.dispatchEvent(new Event('input'));
+          }
+        }, 1000);
+      }, 200);
+    })();
+  } else {
+    const bar = document.getElementById('reading-timer-bar');
+    if (bar) bar.style.display = 'none';
+    document.body.style.paddingTop = '0';
+  }
 </script>
 
 <script type="module" src="{{ url_for('static', filename='js/main.js') }}"></script>

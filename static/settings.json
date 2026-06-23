@@ -1,19 +1,23 @@
 {
+    "interventions": {
+      "readingTimerEnabled": false,
+      "minCommentLength": 0
+    },
     "theme": {
-        "textColor": "black",
-        "fontFamily": "Lato, sans-serif",
-        "fontSize": "16px",
-        "siteBackgroundColor": "white",
-        "commentBackgroundColor": "white",
-        "commentIndentation": 0.75
+      "textColor": "black",
+      "fontFamily": "Lato, sans-serif",
+      "fontSize": "16px",
+      "siteBackgroundColor": "white",
+      "commentBackgroundColor": "white",
+      "commentIndentation": 0.75
     },
     "commentBox": {
-        "borderColor": "gray",
-        "placeholderText": "Start typing...",
-        "replyInComments": true,
-        "displayScore": true,
-        "displayCancel": true,
-        "submitButtonText": "Submit",
-        "anon_users" : "z"
+      "borderColor": "gray",
+      "placeholderText": "Start typing...",
+      "replyInComments": true,
+      "displayScore": true,
+      "displayCancel": true,
+      "submitButtonText": "Submit",
+      "anon_users": "z"
     }
-}
+  }

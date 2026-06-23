@@ -7,7 +7,8 @@ import { clearAllFeedbackBoxes } from '../interventions/feedbackBox.js';
 import { triggerInterventions } from '../main.js';
 import { removeHighlights } from '../interventions/highlighting.js';
 
-const MIN_COMMENT_LENGTH = 10;
+// Driven by "interventions.minCommentLength" in static/settings.json (0 = disabled)
+const MIN_COMMENT_LENGTH = window.INTERVENTION_CONFIG?.minCommentLength ?? 10;
 
 let activeReplyContainer = null;
 
