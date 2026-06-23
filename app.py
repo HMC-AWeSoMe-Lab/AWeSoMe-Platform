@@ -117,10 +117,11 @@ def welcome():
 def index():
     """
     Main route handler for the home page.
- 
+
     Gets a new conversation from the corpus, caches it, and renders the main template
-    with conversation data and UI settings.
- 
+    with conversation data and UI settings. Resumes existing conversation if one is
+    already in the session.
+
     :return: Rendered HTML template with conversation data
     :rtype: str
     """
@@ -130,24 +131,27 @@ def index():
         print(f"🎲 New user assigned to mode: {session['mode']} ({'Treatment' if session['mode'] == 1 else 'Control'})")
     else:
         print(f"📋 Existing user in mode: {session['mode']} ({'Treatment' if session['mode'] == 1 else 'Control'})")
- 
-    # Initializes a new conversation from the corpus
-    # and caches it by its ID for later use.
-    new_convo = get_convo()
-    convo_id = new_convo.id
- 
-    # Save convo in cache and ID in session
-    convo_cache[convo_id] = new_convo
-    session['convo_id'] = convo_id
- 
+
+    # Resume existing conversation if one is already in the session
+    convo_id = session.get('convo_id')
+    if convo_id and convo_id in convo_cache:
+        print(f"📖 Resuming existing conversation: {convo_id}")
+        convo = convo_cache[convo_id]
+    else:
+        print(f"🆕 Loading new conversation")
+        convo = get_convo()
+        convo_id = convo.id
+        convo_cache[convo_id] = convo
+        session['convo_id'] = convo_id
+
     # Generate HTML for the conversation to pass to the HTML template
-    reply_list = display_convo(new_convo)
- 
+    reply_list = display_convo(convo)
+
     # Compute reading time: 1 minute per 1000 words
-    all_text = " ".join(utt.text for utt in new_convo.iter_utterances() if utt.text)
+    all_text = " ".join(utt.text for utt in convo.iter_utterances() if utt.text)
     word_count = len(re.findall(r'\w+', all_text))
     reading_seconds = max(10, (word_count / 1000) * 60)
- 
+
     return render_template(
         'index.html',
         reply_list=reply_list,

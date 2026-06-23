@@ -52,6 +52,22 @@
   }
   body { padding-top: 44px; }
 
+  .back-btn {
+    display: inline-block;
+    margin: 1rem 0 0 1rem;
+    padding: 0.4rem 1rem;
+    background: #2563eb;
+    border: none;
+    border-radius: 6px;
+    font-family: 'Lato', sans-serif;
+    font-size: 0.9rem;
+    color: #fff;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .back-btn:hover {
+    background: #1d4ed8;
+  }
   .reply-footer {
     display: flex;
     align-items: flex-end;
@@ -89,6 +105,8 @@
     <div class="progress-fill" id="progress-fill"></div>
   </div>
 </div>
+
+<a href="/welcome" class="back-btn">← Back</a>
 
 <div id="comments" class="container">
   <div class="thread" id="thread">

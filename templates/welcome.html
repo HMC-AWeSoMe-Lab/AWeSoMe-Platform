@@ -199,5 +199,30 @@
       window.location.href = '/chat';
     }
   });
+// Save and restore questionnaire answers across navigation
+const q1Radios = document.querySelectorAll('input[name="q1"]');
+  const consentBox = document.getElementById('consent-checkbox');
+
+  // Restore saved answers
+  const savedQ1 = sessionStorage.getItem('welcome_q1');
+  if (savedQ1) {
+    q1Radios.forEach(r => { if (r.value === savedQ1) r.checked = true; });
+  }
+  if (sessionStorage.getItem('welcome_consent') === 'true') {
+    consentBox.checked = true;
+    goBtn.disabled = false;
+    goBtn.classList.add('enabled');
+  }
+
+  // Save on change
+  q1Radios.forEach(r => {
+    r.addEventListener('change', function () {
+      sessionStorage.setItem('welcome_q1', this.value);
+    });
+  });
+  consentBox.addEventListener('change', function () {
+    sessionStorage.setItem('welcome_consent', this.checked);
+  });
+  
 </script>
 {% endblock %}
