@@ -26,7 +26,11 @@ export async function toggleCommentBox(btn) {
         const commentContainer = btn.closest('.comment__container');
         if (commentContainer) {
             activeReplyContainer = commentContainer;
-            commentContainer.insertAdjacentElement('afterend', replyBox);
+            let anchor = commentContainer;
+            while (anchor.nextElementSibling && anchor.nextElementSibling !== replyBox && anchor.nextElementSibling.querySelector('.comment__title')?.textContent === 'SODA') {
+                anchor = anchor.nextElementSibling;
+            }
+            anchor.insertAdjacentElement('afterend', replyBox);
             const parentMargin = parseFloat(commentContainer.style.marginLeft) || 0;
             replyBox.style.marginLeft = `-${parentMargin}rem`;
             replyBox.style.width = `calc(100% + ${parentMargin}rem)`;
@@ -200,4 +204,3 @@ export async function handleCommentCancel() {
     activeReplyContainer = null;
     
 }
-
