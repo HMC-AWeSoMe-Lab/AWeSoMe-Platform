@@ -1,5 +1,5 @@
 from flask import *
-from backend.services.CGA_CMV import get_convo, display_convo, get_reply_id, get_convo_depth_css
+from backend.services.CGA_CMV import get_convo, display_convo, get_reply_id, get_convo_depth_css, get_trajectory_summary
 from config import active_adapter
 from backend.database.database import insert_posts, update_latest_interaction_id, dump_payloads_db, insert_trial_mode
 from backend.services.mode_assignment import add_intervention
@@ -11,7 +11,7 @@ from backend.interventions.interventionHelpers import *
 import os
 import json
 import re
- 
+
  
 # Initialize your interventions here !
  
@@ -79,7 +79,18 @@ def is_treatment():
     :rtype: bool
     """
     return session.get('mode') == 1
- 
+
+def get_or_create_convo():
+    convo_id = session.get('convo_id')
+    if convo_id and convo_id in convo_cache:
+        print(f"📖 Resuming existing conversation: {convo_id}")
+        return convo_cache[convo_id]
+
+    print(f"🆕 Loading new conversation")
+    convo = get_convo()
+    convo_cache[convo.id] = convo
+    session['convo_id'] = convo.id
+    return convo
  
 # Grabs path to FLASK_WEBSITE/
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -111,7 +122,16 @@ def welcome():
     :rtype: str
     """
     return render_template('welcome.html')
- 
+
+@app.route('/trajectory-summary', methods=['GET'])
+def trajectory_summary():
+    convo = get_or_create_convo()
+    summary = get_trajectory_summary(convo)
+
+    return render_template(
+        'trajectory_summary.html',
+        trajectory_summary=summary or "Insert Trajectory Summary here."
+    )
  
 @app.route('/chat', methods=['POST', 'GET'])
 def index():
@@ -132,17 +152,7 @@ def index():
     else:
         print(f"📋 Existing user in mode: {session['mode']} ({'Treatment' if session['mode'] == 1 else 'Control'})")
 
-    # Resume existing conversation if one is already in the session
-    convo_id = session.get('convo_id')
-    if convo_id and convo_id in convo_cache:
-        print(f"📖 Resuming existing conversation: {convo_id}")
-        convo = convo_cache[convo_id]
-    else:
-        print(f"🆕 Loading new conversation")
-        convo = get_convo()
-        convo_id = convo.id
-        convo_cache[convo_id] = convo
-        session['convo_id'] = convo_id
+    convo = get_or_create_convo()
 
     # Generate HTML for the conversation to pass to the HTML template
     reply_list = display_convo(convo)

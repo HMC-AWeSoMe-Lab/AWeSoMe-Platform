@@ -31,6 +31,12 @@ def get_convo():
                 return convo
 
 
+def get_trajectory_summary(convo):
+    if convo is None:
+        return None
+    summary = (convo.meta.get("trajectory_summary") or "").strip()
+    return summary or None
+
 utt_ids = []
 user_dict = {}
 
