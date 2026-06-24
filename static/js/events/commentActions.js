@@ -6,6 +6,7 @@ import { repositionAllElements } from '../services/layoutManager.js';
 import { clearAllFeedbackBoxes } from '../interventions/feedbackBox.js';
 import { triggerInterventions } from '../main.js';
 import { removeHighlights } from '../interventions/highlighting.js';
+import { renderPopup, resetPopupShownFlag } from '../interventions/popup.js';
 
 // Driven by "interventions.minCommentLength" in static/settings.json (0 = disabled)
 const MIN_COMMENT_LENGTH = window.INTERVENTION_CONFIG?.minCommentLength ?? 10;
@@ -140,6 +141,7 @@ async function postComment(commentContent) {
         });
 
         if (postData.html) {
+            resetPopupShownFlag(); 
             const replyBox = document.getElementById('reply-box');
             replyBox.insertAdjacentHTML('beforebegin', postData.html);
 
@@ -186,6 +188,8 @@ export async function handleCommentCancel() {
     appState.setLatestAction("BUTTON_CLICK", "cancel-button");
     await pushToPayloadQueue();
 
+    resetPopupShownFlag();
+
     clearAllFeedbackBoxes();
 
     const replyBox = document.getElementById('reply-box');
@@ -194,4 +198,6 @@ export async function handleCommentCancel() {
     replyBox.style.display = "none";
     if (hoverBox) hoverBox.style.display = "none";
     activeReplyContainer = null;
+    
 }
+
