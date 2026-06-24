@@ -1,7 +1,7 @@
 from flask import *
 from backend.services.CGA_CMV import get_convo, display_convo, get_reply_id, get_convo_depth_css, get_trajectory_summary
 from config import active_adapter
-from backend.database.database import insert_posts, update_latest_interaction_id, dump_payloads_db, insert_trial_mode
+from backend.database.database import insert_posts, update_latest_interaction_id, dump_payloads_db, insert_trial_mode, insert_questionnaire_response
 from backend.services.mode_assignment import add_intervention
 from backend.interventions.interventionHelpers import *
 from backend.interventions.popup import PopupIntervention
@@ -171,7 +171,8 @@ def index():
         submit_button_text=submit_button_text,
         reading_seconds=reading_seconds,
         reading_timer_enabled=reading_timer_enabled,
-        min_comment_length=min_comment_length
+        min_comment_length=min_comment_length,
+        has_commented=session.get('has_commented', False)
     )
  
  
@@ -245,6 +246,8 @@ def submit_comment():
  
     # Ensures the comment is not empty before returning a response
     if comment:
+        session['has_commented'] = True
+        session.modified = True
         print(f"Comment: {comment}")
         html_snippets = display_convo(convo, comment_content=[comment])
         # Grab only the HTML for the new comment
@@ -383,6 +386,68 @@ def get_group():
     data = {'mode': user_mode}
     return jsonify(data)
  
+@app.route('/submit_questionnaire', methods=['POST'])
+def submit_questionnaire():
+    """
+    Store questionnaire answers (beginning or ending) in the database.
+
+    Expects JSON with:
+      - questionnaire: 'beginning' or 'ending'
+      - responses: dict of { question_name: answer_value }
+      - currentTimestamp: client timestamp
+
+    :return: JSON confirmation or error
+    :rtype: flask.Response
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data'}), 400
+
+    questionnaire = data.get('questionnaire')
+    responses = data.get('responses', {})
+    current_timestamp = data.get('currentTimestamp')
+    interaction_id = data.get('interaction_id') or session.get('interaction_id')
+
+    if not questionnaire or not responses:
+        return jsonify({'error': 'Missing questionnaire or responses'}), 400
+
+    for question_name, answer in responses.items():
+        insert_questionnaire_response(
+            interaction_id=interaction_id,
+            questionnaire=questionnaire,
+            question_name=question_name,
+            answer=str(answer),
+            current_timestamp=current_timestamp
+        )
+
+    print(f"📋 Stored {len(responses)} response(s) for '{questionnaire}' questionnaire (interaction_id={interaction_id})")
+    return jsonify({'ok': True, 'stored': len(responses)})
+
+
+@app.route('/ending', methods=['GET'])
+def ending():
+    """
+    Render the ending page shown after the conversation.
+    Only accessible if the user has submitted at least one comment.
+
+    :return: Rendered ending HTML template or redirect
+    :rtype: str
+    """
+    if not session.get('has_commented'):
+        return redirect(url_for('index'))
+    return render_template('ending.html')
+
+
+@app.route('/done', methods=['GET'])
+def done():
+    """
+    Final page after questionnaire submission — clears the session.
+
+    :return: Simple confirmation response
+    :rtype: str
+    """
+    session.clear()
+    return "<h2 style='font-family:Lato,sans-serif;text-align:center;margin-top:4rem;'>You're all done! You may now close this tab.</h2>"
  
 # Prevents the Flask app from running when imported as a module
 if __name__ == '__main__':

@@ -180,6 +180,17 @@ async function postComment(commentContent) {
             if (hoverBox) hoverBox.style.display = "none";
             activeReplyContainer = null;
 
+            // Unlock the "Finish →" button now that the user has commented.
+            // The button is rendered server-side as a disabled <a> on first load;
+            // swap it out for the real link without a full page reload.
+            const finishBtn = document.querySelector('a.back-btn[title="Please submit a comment first"]');
+            if (finishBtn) {
+                finishBtn.href = '/ending';
+                finishBtn.removeAttribute('title');
+                finishBtn.style.background = '';
+                finishBtn.style.cursor = '';
+            }
+
             // The feedback box ("Consider being more constructive!") is rendered as a
             // sibling element next to reply-box, not inside it — hiding reply-box alone
             // leaves it orphaned on the page. Clear it now that the reply is submitted.

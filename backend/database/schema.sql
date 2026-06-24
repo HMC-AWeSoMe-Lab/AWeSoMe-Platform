@@ -17,3 +17,13 @@ CREATE TABLE trial_mode (
     interaction_id INTEGER,
     mode TEXT
 );
+
+DROP TABLE IF EXISTS questionnaire_responses;
+CREATE TABLE questionnaire_responses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    interaction_id INTEGER,
+    questionnaire TEXT NOT NULL,
+    question_name TEXT NOT NULL,
+    answer TEXT NOT NULL,
+    current_timestamp DATETIME NOT NULL
+);

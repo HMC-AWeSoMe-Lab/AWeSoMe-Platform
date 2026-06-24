@@ -194,4 +194,12 @@
 </script>
 
 <script type="module" src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+{% if has_commented %}
+<a href="/ending" class="back-btn" style="float:right; margin-right:1rem;">Finish →</a>
+{% else %}
+<a class="back-btn" style="float:right; margin-right:1rem; background:#b0bec5; cursor:not-allowed;" title="Please submit a comment first">Finish →</a>
+{% endif %}
+
+
 {% endblock %}

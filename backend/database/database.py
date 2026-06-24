@@ -110,6 +110,25 @@ def update_latest_interaction_id():
     return new_id
 
 
+
+def insert_questionnaire_response(interaction_id, questionnaire, question_name, answer, current_timestamp):
+    """
+    Insert a single questionnaire answer into the 'questionnaire_responses' table.
+
+    :param interaction_id: The interaction ID for this session
+    :param questionnaire: Which questionnaire (e.g. 'beginning' or 'ending')
+    :param question_name: The form field name (e.g. 'q1', 'eq1')
+    :param answer: The selected answer value
+    :param current_timestamp: When the response was submitted
+    """
+    conn = get_db_connection()
+    query = """INSERT INTO questionnaire_responses
+               (interaction_id, questionnaire, question_name, answer, current_timestamp)
+               VALUES (?, ?, ?, ?, ?)"""
+    conn.execute(query, (interaction_id, questionnaire, question_name, answer, current_timestamp))
+    conn.commit()
+    conn.close()
+
 def dump_payloads_db(data):
     """
     Insert multiple posts from the payload queue dump into the 'posts' table.
