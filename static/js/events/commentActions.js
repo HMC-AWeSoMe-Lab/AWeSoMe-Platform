@@ -179,6 +179,11 @@ async function postComment(commentContent) {
             replyBox.style.display = "none";
             if (hoverBox) hoverBox.style.display = "none";
             activeReplyContainer = null;
+
+            // The feedback box ("Consider being more constructive!") is rendered as a
+            // sibling element next to reply-box, not inside it — hiding reply-box alone
+            // leaves it orphaned on the page. Clear it now that the reply is submitted.
+            clearAllFeedbackBoxes();
             setTimeout(() => repositionAllElements(), 50);
         } else if (postData.error) {
             console.error("Server error:", postData.error);
