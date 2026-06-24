@@ -68,7 +68,14 @@ export async function toggleCommentBox(btn) {
 export function initCommentLengthGuard() {
     const textArea = document.getElementById('content');
     if (!textArea) return;
-    textArea.addEventListener('input', () => updateSubmitButton(textArea.value));
+    textArea.addEventListener('input', () => {
+        updateSubmitButton(textArea.value);
+        // Hide the intervention feedback box while the user is not typing.
+        // It will reappear on the next "onClick" trigger (reply button) if needed.
+        if (textArea.value.trim().length === 0) {
+            clearAllFeedbackBoxes();
+        }
+    });
 }
 
 function updateSubmitButton(text) {
@@ -145,9 +152,26 @@ async function postComment(commentContent) {
         });
 
         if (postData.html) {
-            resetPopupShownFlag(); 
+            resetPopupShownFlag();
             const replyBox = document.getElementById('reply-box');
-            replyBox.insertAdjacentHTML('beforebegin', postData.html);
+
+            // Find the correct insertion point: start at the parent comment container
+            // and walk forward past any SODA replies that were already submitted there,
+            // skipping any non-comment siblings (e.g. feedback-box wrappers).
+            // This guarantees new replies are always appended in chronological order
+            // regardless of whether the feedback-box intervention is active.
+            let insertionAnchor = activeReplyContainer || replyBox;
+            if (activeReplyContainer) {
+                let sibling = activeReplyContainer.nextElementSibling;
+                while (sibling && sibling !== replyBox) {
+                    if (sibling.querySelector('.comment__title')?.textContent === 'SODA') {
+                        // This is a previously-submitted reply — keep walking
+                        insertionAnchor = sibling;
+                    }
+                    sibling = sibling.nextElementSibling;
+                }
+            }
+            insertionAnchor.insertAdjacentHTML('afterend', postData.html);
 
             textArea.value = "";
             removeHighlights();
