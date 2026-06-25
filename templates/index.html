@@ -96,7 +96,8 @@
 <div id="app-config"
      data-timer-enabled="{{ reading_timer_enabled }}"
      data-min-comment-length="{{ min_comment_length }}"
-     data-reading-seconds="{{ reading_seconds }}">
+     data-reading-seconds="{{ reading_seconds }}"
+     data-reply-to-anywhere="{{ reply_to_anywhere }}">
 </div>
 
 <div id="reading-timer-bar">
@@ -116,6 +117,12 @@
         {{ utt | safe }}
       {% endfor %}
     </div>
+
+    {% if not reply_to_anywhere %}
+    <div id="single-reply-btn-container">
+      <button id="single-reply-btn" onclick="toggleCommentBox(null)">↩ Reply to {{ reply_id }}</button>
+    </div>
+    {% endif %}
 
     <div id="reply-box" class="text-area" style="display:none;">
       <form id="comment-form">
@@ -141,7 +148,8 @@
 
   window.INTERVENTION_CONFIG = {
     readingTimerEnabled: _cfg.timerEnabled === 'True',
-    minCommentLength: parseInt(_cfg.minCommentLength)
+    minCommentLength: parseInt(_cfg.minCommentLength),
+    replyToAnywhere: _cfg.replyToAnywhere === 'True'
   };
 
   window.readingTimer = { done: !window.INTERVENTION_CONFIG.readingTimerEnabled };

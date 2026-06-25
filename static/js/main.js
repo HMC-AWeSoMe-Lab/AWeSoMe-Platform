@@ -249,6 +249,18 @@ window.onload = async function () {
  */
 document.addEventListener('DOMContentLoaded', async function () {
   await initializeDOM();
+
+  // Align the single reply button with the last comment when replyToAnywhere is off
+  if (!(window.INTERVENTION_CONFIG?.replyToAnywhere ?? true)) {
+    const singleBtnContainer = document.getElementById('single-reply-btn-container');
+    if (singleBtnContainer) {
+      const allContainers = document.querySelectorAll('#reddit-convo .comment__container');
+      const lastContainer = allContainers.length > 0 ? allContainers[allContainers.length - 1] : null;
+      const lastMargin = lastContainer ? (parseFloat(lastContainer.style.marginLeft) || 0) : 0;
+      singleBtnContainer.style.marginLeft = `${lastMargin}rem`;
+      singleBtnContainer.style.width = `calc(100% - ${lastMargin}rem)`;
+    }
+  }
 });
 
 

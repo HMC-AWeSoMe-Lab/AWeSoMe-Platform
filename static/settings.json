@@ -1,7 +1,8 @@
 {
     "interventions": {
       "readingTimerEnabled": false,
-      "minCommentLength": 0
+      "minCommentLength": 0,
+      "replyToAnywhere": true
     },
     "theme": {
       "textColor": "black",

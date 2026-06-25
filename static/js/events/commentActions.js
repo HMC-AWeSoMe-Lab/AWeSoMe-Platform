@@ -21,20 +21,45 @@ export async function toggleCommentBox(btn) {
     appState.updateTimestamp();
 
     const replyBox = document.getElementById('reply-box');
+    const replyToAnywhere = window.INTERVENTION_CONFIG?.replyToAnywhere ?? true;
 
-    if (btn) {
-        const commentContainer = btn.closest('.comment__container');
-        if (commentContainer) {
-            activeReplyContainer = commentContainer;
-            let anchor = commentContainer;
-            while (anchor.nextElementSibling && anchor.nextElementSibling !== replyBox && anchor.nextElementSibling.querySelector('.comment__title')?.textContent === 'SODA') {
-                anchor = anchor.nextElementSibling;
+    if (replyToAnywhere) {
+        // Original behaviour: move reply box under the clicked comment
+        if (btn) {
+            const commentContainer = btn.closest('.comment__container');
+            if (commentContainer) {
+                activeReplyContainer = commentContainer;
+                let anchor = commentContainer;
+                while (anchor.nextElementSibling && anchor.nextElementSibling !== replyBox && anchor.nextElementSibling.querySelector('.comment__title')?.textContent === 'SODA') {
+                    anchor = anchor.nextElementSibling;
+                }
+                anchor.insertAdjacentElement('afterend', replyBox);
+                const parentMargin = parseFloat(commentContainer.style.marginLeft) || 0;
+                replyBox.style.marginLeft = `-${parentMargin}rem`;
+                replyBox.style.width = `calc(100% + ${parentMargin}rem)`;
             }
-            anchor.insertAdjacentElement('afterend', replyBox);
-            const parentMargin = parseFloat(commentContainer.style.marginLeft) || 0;
-            replyBox.style.marginLeft = `-${parentMargin}rem`;
-            replyBox.style.width = `calc(100% + ${parentMargin}rem)`;
         }
+    } else {
+        // replyToAnywhere=false: reply box sits below the last comment at full width
+        // Hide the single reply button while the box is open
+        const singleBtnContainer = document.getElementById('single-reply-btn-container');
+        if (singleBtnContainer) singleBtnContainer.style.display = 'none';
+
+        // Position reply-box right after the single-reply-btn-container (or at end of thread)
+        const thread = document.getElementById('thread');
+        if (singleBtnContainer) {
+            singleBtnContainer.insertAdjacentElement('afterend', replyBox);
+        } else {
+            thread.appendChild(replyBox);
+        }
+        // Match the indentation of the last comment
+        const allContainers = document.querySelectorAll('#reddit-convo .comment__container');
+        const lastContainer = allContainers.length > 0 ? allContainers[allContainers.length - 1] : null;
+        const lastMargin = lastContainer ? (parseFloat(lastContainer.style.marginLeft) || 0) : 0;
+        replyBox.style.marginLeft = `${lastMargin}rem`;
+        replyBox.style.width = `calc(100% - ${lastMargin}rem)`;
+
+        activeReplyContainer = lastContainer;
     }
 
     replyBox.style.display = 'block';
@@ -70,8 +95,6 @@ export function initCommentLengthGuard() {
     if (!textArea) return;
     textArea.addEventListener('input', () => {
         updateSubmitButton(textArea.value);
-        // Hide the intervention feedback box while the user is not typing.
-        // It will reappear on the next "onClick" trigger (reply button) if needed.
         if (textArea.value.trim().length === 0) {
             clearAllFeedbackBoxes();
         }
@@ -90,11 +113,9 @@ function updateSubmitButton(text) {
 
     submitBtn.disabled = blocked;
 
-    // "too short" message: only when box is non-empty but short
     if (minLengthMsg)
         minLengthMsg.style.display = (tooShort && text.length > 0) ? 'block' : 'none';
 
-    // "read more carefully" message: only when timer is still running
     if (readingMsg)
         readingMsg.style.display = timerActive ? 'block' : 'none';
 }
@@ -103,7 +124,6 @@ export async function handleCommentSubmit() {
     const textArea = domManager.get('textArea');
     const commentContent = textArea.value;
 
-    // Hard guards — belt and suspenders
     if (commentContent.trim().length < MIN_COMMENT_LENGTH) {
         updateSubmitButton(commentContent);
         return;
@@ -155,17 +175,11 @@ async function postComment(commentContent) {
             resetPopupShownFlag();
             const replyBox = document.getElementById('reply-box');
 
-            // Find the correct insertion point: start at the parent comment container
-            // and walk forward past any SODA replies that were already submitted there,
-            // skipping any non-comment siblings (e.g. feedback-box wrappers).
-            // This guarantees new replies are always appended in chronological order
-            // regardless of whether the feedback-box intervention is active.
             let insertionAnchor = activeReplyContainer || replyBox;
             if (activeReplyContainer) {
                 let sibling = activeReplyContainer.nextElementSibling;
                 while (sibling && sibling !== replyBox) {
                     if (sibling.querySelector('.comment__title')?.textContent === 'SODA') {
-                        // This is a previously-submitted reply — keep walking
                         insertionAnchor = sibling;
                     }
                     sibling = sibling.nextElementSibling;
@@ -180,9 +194,10 @@ async function postComment(commentContent) {
             if (hoverBox) hoverBox.style.display = "none";
             activeReplyContainer = null;
 
-            // Unlock the "Finish →" button now that the user has commented.
-            // The button is rendered server-side as a disabled <a> on first load;
-            // swap it out for the real link without a full page reload.
+            // Restore single reply button if replyToAnywhere is off
+            const singleBtnContainer = document.getElementById('single-reply-btn-container');
+            if (singleBtnContainer) singleBtnContainer.style.display = '';
+
             const finishBtn = document.querySelector('a.back-btn[title="Please submit a comment first"]');
             if (finishBtn) {
                 finishBtn.href = '/ending';
@@ -191,9 +206,6 @@ async function postComment(commentContent) {
                 finishBtn.style.cursor = '';
             }
 
-            // The feedback box ("Consider being more constructive!") is rendered as a
-            // sibling element next to reply-box, not inside it — hiding reply-box alone
-            // leaves it orphaned on the page. Clear it now that the reply is submitted.
             clearAllFeedbackBoxes();
             setTimeout(() => repositionAllElements(), 50);
         } else if (postData.error) {
@@ -233,7 +245,6 @@ export async function handleCommentCancel() {
     await pushToPayloadQueue();
 
     resetPopupShownFlag();
-
     clearAllFeedbackBoxes();
 
     const replyBox = document.getElementById('reply-box');
@@ -242,5 +253,8 @@ export async function handleCommentCancel() {
     replyBox.style.display = "none";
     if (hoverBox) hoverBox.style.display = "none";
     activeReplyContainer = null;
-    
+
+    // Restore single reply button if replyToAnywhere is off
+    const singleBtnContainer = document.getElementById('single-reply-btn-container');
+    if (singleBtnContainer) singleBtnContainer.style.display = '';
 }

@@ -10,12 +10,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 settings_path = os.path.join(BASE_DIR, 'static', 'settings.json')
 
 
-
-# admin_mode allowing for admin features to be toggled on and off
-# such as the ability to select a specific conversation to display
 admin_mode = False
-
-# print("CGA_CMV loaded and corpus initialized.")
 
 last_utt_id = ""
 
@@ -47,6 +42,7 @@ def display_convo(c, comment_content=None):
         reply_in_comments = bool(settings["commentBox"]["replyInComments"])
         display_score = bool(settings["commentBox"]["displayScore"])
         anon_users = bool(settings["commentBox"]["anon_users"])
+        reply_to_anywhere = bool(settings["interventions"].get("replyToAnywhere", True))
     
     reply_list = []
     reply_button_html = ""
@@ -54,12 +50,8 @@ def display_convo(c, comment_content=None):
     timestamp_html = ""
     speakerCount = 1
 
-    # BUILD TREE-ORDERED UTTERANCES — depth-first traversal so each
-    # reply is grouped directly under its parent (and ahead of any
-    # "uncle" branches), instead of just sorting by depth.
     all_utts = list(c.iter_utterances())
 
-    # Map utt_id -> utterance, and utt_id -> list of its direct replies
     utt_map = {u.id: u for u in all_utts}
     children_map = {}
     roots = []
@@ -67,12 +59,8 @@ def display_convo(c, comment_content=None):
         if u.reply_to is not None and u.reply_to in utt_map:
             children_map.setdefault(u.reply_to, []).append(u)
         else:
-            # reply_to is None, or points to an utterance we don't have
-            # (e.g. a deleted parent) — treat as a root for display purposes
             roots.append(u)
 
-    # Guard against malformed cyclic reply_to chains (shouldn't happen with
-    # real corpora, but avoids an infinite recursion / stack overflow if it does)
     def _has_cycle(start_id):
         seen = set()
         current_id = start_id
@@ -86,11 +74,9 @@ def display_convo(c, comment_content=None):
 
     for u in list(all_utts):
         if u not in roots and _has_cycle(u.id):
-            # break the cycle by promoting this utterance to a root
             children_map[u.reply_to].remove(u)
             roots.append(u)
 
-    # Keep sibling order chronological within each branch
     def _sort_key(u):
         return u.timestamp if u.timestamp is not None else float('inf')
 
@@ -98,7 +84,6 @@ def display_convo(c, comment_content=None):
     for sibs in children_map.values():
         sibs.sort(key=_sort_key)
 
-    # Pre-compute each utterance's true tree depth (root = 1) for indentation
     depth_map = {}
 
     def assign_depths(utt, depth):
@@ -109,8 +94,6 @@ def display_convo(c, comment_content=None):
     for root in roots:
         assign_depths(root, 1)
 
-    # Walk the tree depth-first (pre-order): a node, then all its
-    # descendants, before moving on to its next sibling.
     sorted_utts = []
 
     def visit(utt):
@@ -124,7 +107,6 @@ def display_convo(c, comment_content=None):
     def get_depth(utt):
         return depth_map.get(utt.id, 1)
 
-    # ADD SUMMARY AS FIRST ITEM
     summary = c.meta.get("conversation_summary", "")
     summary = summary.strip()
 
@@ -138,11 +120,9 @@ def display_convo(c, comment_content=None):
             </div>
         ''')
 
-    # FIRST LOOP — build user_dict
     for utt in sorted_utts:
         user_dict[str(utt.speaker_id)] = ""
     
-    # SECOND LOOP — build HTML using true tree depth for indentation
     is_first = True
     for utt in sorted_utts:
         if anon_users:
@@ -156,8 +136,11 @@ def display_convo(c, comment_content=None):
             utt_ids.append(str(utt.speaker_id))
             user_dict[str(utt.speaker_id)] = str(utt.speaker_id)
 
-        if reply_in_comments:
+        if reply_in_comments and reply_to_anywhere:
             reply_button_html = f'<button class="reply" data-utt-id="{utt.id}" onclick="toggleCommentBox(this)">↩ reply</button>'
+        else:
+            reply_button_html = ""
+
         if display_score and utt.score is not None:
             score_html = "<div> Score: " + str(utt.score) + "</div>"
         else:
@@ -170,7 +153,6 @@ def display_convo(c, comment_content=None):
 
         formatted_text = processed_quotes(utt.text)
 
-        # Use true tree depth for indentation instead of a flat counter
         depth = get_depth(utt)
         margin = depth * indent_size
 
@@ -184,10 +166,8 @@ def display_convo(c, comment_content=None):
                           + "<div class=\"comment-card-footer\">" + reply_button_html + score_html + timestamp_html +
                           "</div>" + "</div>" + "</div>")
 
-    # OPTIONAL: Add user comments at the end
     if comment_content:
         new_comment_score_html = "<div> Score: 0</div>" if display_score else ""
-        # User replies go one level deeper than the deepest utterance
         max_depth = max((get_depth(u) for u in sorted_utts), default=1)
         user_margin = (max_depth + 1) * indent_size
         for comment in comment_content:
@@ -205,12 +185,6 @@ def display_convo(c, comment_content=None):
     return reply_list
         
 def get_reply_id():
-    """
-    Get the ID of the last utterance in the conversation.
-
-    :return: ID of the most recent utterance
-    :rtype: str
-    """
     with open(settings_path, "r") as file:
         settings = json.load(file)
         anon_users = bool(settings["commentBox"]["anon_users"])
@@ -221,42 +195,15 @@ def get_reply_id():
         return utt_ids[-1]
 
 def get_convo_depth_css(reply_list):
-    """
-    Calculate the depth of the conversation for CSS styling purposes.
-
-    :param reply_list: List of conversation reply HTML elements
-    :type reply_list: list
-    :return: Number of replies in the conversation
-    :rtype: int
-    """
     return len(reply_list)
 
 
 def processed_quotes(utt_text):
-    """
-    Process quoted text formatting in utterances.
-
-    Handles special formatting for quoted text within utterances,
-    converting quote markers to proper HTML formatting.
-
-    :param utt_text: Raw utterance text to process
-    :type utt_text: str
-    :return: Processed text with quote formatting
-    :rtype: str
-    """
-    # if '&gt;' not in utt_text:
-    #     return utt_text
     lines = utt_text.split('\n')
     wrapped_lines = []
     quote_block = []
 
-    # print(utt_text)
-    
-
     for line in lines:
-
-        # if line.strip().startswith('&gt'):
-        #     quote_block.append(line[4:])
         if '&gt;' in line.strip():
             quote_block.append(line.strip().replace('&gt;', '', 1))
         else:
@@ -268,9 +215,4 @@ def processed_quotes(utt_text):
         wrapped_lines.append('<div class="quote-container">\n' + '\n'.join(quote_block) +'\n</div>')
     if '&gt' in '\n'.join(wrapped_lines):
         return processed_quotes('\n'.join(wrapped_lines))
-    # print('\n'.join(wrapped_lines))
     return '\n'.join(wrapped_lines)
-
-
-# c = get_convo()
-# print(display_convo(c))
