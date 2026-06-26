@@ -101,15 +101,18 @@ def root():
 @app.route('/welcome', methods=['GET'])
 def welcome():
     return render_template('welcome.html')
-
+trajectory_summary_enabled = settings["interventions"].get("trajectorySummaryEnabled", True)
 @app.route('/trajectory-summary', methods=['GET'])
 def trajectory_summary():
     convo = get_or_create_convo()
     summary = get_trajectory_summary(convo)
 
+    if not trajectory_summary_enabled or not summary or not summary.strip():
+        return redirect(url_for('index'))
+
     return render_template(
         'trajectory_summary.html',
-        trajectory_summary=summary or "Insert Trajectory Summary here."
+        trajectory_summary=summary
     )
  
 @app.route('/chat', methods=['POST', 'GET'])
@@ -315,5 +318,7 @@ def done():
     session.clear()
     return "<h2 style='font-family:Lato,sans-serif;text-align:center;margin-top:4rem;'>You're all done! You may now close this tab.</h2>"
  
+
+
 if __name__ == '__main__':
     app.run(debug=True, port=5001, use_reloader=False)

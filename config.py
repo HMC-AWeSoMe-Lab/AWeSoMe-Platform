@@ -7,7 +7,7 @@
 # lines below with:
 #
 from backend.adapters.convokit_adapter import ConvoKitAdapter
-active_adapter = ConvoKitAdapter("download:reddit-corpus-small")
+active_adapter = ConvoKitAdapter("/home/hrepp/SCD-corpus")
 active_adapter.load()
 # -------------------------------------------------------
 

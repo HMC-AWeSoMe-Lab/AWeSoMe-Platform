@@ -2,8 +2,10 @@
     "interventions": {
       "readingTimerEnabled": false,
       "minCommentLength": 0,
-      "replyToAnywhere": true
+      "replyToAnywhere": false,
+      "trajectorySummaryEnabled": false
     },
+
     "theme": {
       "textColor": "black",
       "fontFamily": "Lato, sans-serif",

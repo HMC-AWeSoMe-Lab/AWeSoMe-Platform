@@ -57,6 +57,8 @@ class ConvoKitAdapter(ConvoInterface):
                 f"string, or a ConvoKit Corpus object. Got: {type(self._corpus_source)}"
             )
 
+        self._ck_corpus = ck_corpus  # retain reference so save() can sync back to disk
+
         self._speakers = {}
         self._conversations = {}
 
@@ -92,6 +94,28 @@ class ConvoKitAdapter(ConvoInterface):
 
         print(f"Loaded {len(self._conversations)} conversations.")
         return self
+
+    def save(self):
+        """Sync in-memory conversation metadata back to the ConvoKit corpus and save to disk."""
+        import os
+
+        for convo_id, convo in self._conversations.items():
+            ck_convo = self._ck_corpus.get_conversation(convo_id)
+            ck_convo.meta.update(convo.meta)
+
+        corpus_path = (
+            self._corpus_source
+            if isinstance(self._corpus_source, str)
+            and not self._corpus_source.startswith(self._DOWNLOAD_PREFIX)
+            else None
+        )
+        if corpus_path:
+            base_path = os.path.dirname(corpus_path)
+            name = os.path.basename(corpus_path)
+            self._ck_corpus.dump(name, base_path=base_path)
+            print(f"  ✅ Corpus saved to '{corpus_path}'.")
+        else:
+            print("Warning: corpus_source is not a local path; cannot save.")
 
     def random_conversation(self) -> Conversation:
         return random.choice(list(self._conversations.values()))

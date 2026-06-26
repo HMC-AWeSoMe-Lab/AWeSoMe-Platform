@@ -5,28 +5,50 @@ from backend.services.SCDGenerator import getTrajectorySummary
 from backend.services.SCD_helpers import transcript
 from backend.convo_interface.interface import ConvoInterface
 
-def generate_summaries(interface: ConvoInterface):
+CHECKPOINT_EVERY = 500
 
+def generate_summaries(interface: ConvoInterface, overwrite=False):
     convos = list(interface.iter_conversations())
     total = len(convos)
+    generated = 0
 
     for i, convo in enumerate(convos):
-        print(f"Processing {i+1}/{total}: {convo.id}")
+        existing = (convo.meta.get("trajectory_summary") or "").strip()
+        if existing and not overwrite:
+            print(f"[{i+1}/{total}] {convo.id} — skipping (already has summary)")
+            continue
+
+        print(f"[{i+1}/{total}] {convo.id} — generating ...", end=" ", flush=True)
 
         try:
             convo_text = transcript(convo)
             summary = getTrajectorySummary(convo_text)
+            convo.meta["trajectory_summary"] = summary.strip()
+            generated += 1
+            print(f"✅ ({len(summary.split())} words)")
 
-            convo.add_meta("conversation_summary", summary)
-
-            print("  ✅ Summary stored")
+            if generated % CHECKPOINT_EVERY == 0:
+                if hasattr(interface, "save"):
+                    print(f"  💾 Checkpoint: saving after {generated} summaries...")
+                    interface.save()
 
         except Exception as e:
-            print(f"  ❌ Failed: {e}")
+            print(f"❌ Failed: {e}")
 
-    print("\n✅ Done!")
+    if generated > 0 and hasattr(interface, "save"):
+        print(f"💾 Saving {generated} summaries to disk...")
+        interface.save()
+    elif generated == 0:
+        print("Nothing new to save.")
+
+    print(f"\n✅ Done! Generated {generated} / {total} summaries.")
+
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--overwrite", action="store_true",
+                        help="Re-generate summaries even if they already exist")
+    args = parser.parse_args()
 
-    raise RuntimeError(
-        "Do not run services directly. Provide a ConvoInterface instance from the application layer."
-    )
+    from config import active_adapter
+    generate_summaries(active_adapter, overwrite=args.overwrite)

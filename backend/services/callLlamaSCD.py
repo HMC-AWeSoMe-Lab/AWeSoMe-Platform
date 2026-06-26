@@ -17,18 +17,20 @@ def call_llama(system_prompt, user_prompt, bucket = 0):
     :return: LLaMA model output
     :rtype: str
     """
-    port = 8080 + bucket
+    port = 30000 + bucket
     call_url = "http://localhost:" + str(port) + "/v1"
     client = OpenAI(base_url=call_url, api_key = "dummy_key"
     )
 
     # POST-ing to HMC servsers downstairs
     completion = client.chat.completions.create(
-    model="hellooooo",
+    model="Qwen/Qwen3.6-27B",
     messages=[
         {"role": "system", "content": system_prompt},
+        
         {"role": "user", "content": user_prompt}
     ],
+    extra_body={"chat_template_kwargs": {"enable_thinking": False}},
     temperature=0.7,
     )
  
