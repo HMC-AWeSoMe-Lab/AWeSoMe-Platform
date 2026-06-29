@@ -1,8 +1,8 @@
 from flask import *
-from backend.services.CGA_CMV import get_convo, display_convo, get_reply_id, get_convo_depth_css, get_trajectory_summary
+from backend.convo_manager.convo_manager import get_convo, display_convo, get_reply_id, get_convo_depth_css, get_trajectory_summary
+from backend.mode_assignment import add_intervention
 from config import active_adapter
 from backend.database.database import insert_posts, update_latest_interaction_id, dump_payloads_db, insert_trial_mode, insert_questionnaire_response
-from backend.services.mode_assignment import add_intervention
 from backend.interventions.interventionHelpers import *
 from backend.interventions.popup import PopupIntervention
 from backend.interventions.feedbackBox import feedbackBoxIntervention
