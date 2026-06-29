@@ -3,7 +3,7 @@
       "readingTimerEnabled": false,
       "minCommentLength": 0,
       "replyToAnywhere": false,
-      "trajectorySummaryEnabled": false,
+      "trajectorySummaryEnabled": true,
       "welcomePageEnabled": true,
       "entryQuestionnaireEnabled": false,
       "exitPageEnabled": true,

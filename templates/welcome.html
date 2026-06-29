@@ -179,11 +179,11 @@
     </div>
   </div>
  
-  <button class="go-btn" id="go-btn" disabled>GO!</button>
+  <button class="go-btn" id="go-btn" disabled data-entry-questionnaire="{{ 'true' if entry_questionnaire_enabled else 'false' }}">GO!</button>
 </div>
  
 <script>
-  const entryQuestionnaireEnabled = {{ entry_questionnaire_enabled | tojson }};
+  const entryQuestionnaireEnabled = document.getElementById('go-btn').dataset.entryQuestionnaire === 'true';
   const checkbox = document.getElementById('consent-checkbox');
   const goBtn = document.getElementById('go-btn');
 
