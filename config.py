@@ -11,7 +11,7 @@ active_adapter = ConvoKitAdapter("/home/mayli/SCD-corpus")
 active_adapter.load()
 # -------------------------------------------------------
 
-#from backend.convo_interface.dummy_adapter import DummyAdapter
-#from backend.convo_interface.test_data import DUMMY_CONVERSATION
+#from backend.adapters.dummy_adapter import DummyAdapter
+#from backend.adapters.test_data import DUMMY_CONVERSATION
 #active_adapter = DummyAdapter(DUMMY_CONVERSATION)
 #active_adapter.load()

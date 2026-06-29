@@ -8,8 +8,8 @@ Usage (from project root):
     python -m backend.convo_interface.test_dummy
 """
 
-from backend.convo_interface.dummy_adapter import DummyAdapter
-from backend.convo_interface.test_data import DUMMY_CONVERSATION
+from backend.adapters.dummy_adapter import DummyAdapter
+from backend.adapters.test_data import DUMMY_CONVERSATION
 
 
 def run_tests():
