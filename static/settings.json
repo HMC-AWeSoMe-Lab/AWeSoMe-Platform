@@ -3,7 +3,9 @@
       "readingTimerEnabled": false,
       "minCommentLength": 0,
       "replyToAnywhere": false,
-      "trajectorySummaryEnabled": false
+      "trajectorySummaryEnabled": true,
+      "entryQuestionnaireEnabled": false,
+      "exitQuestionnaireEnabled": false
     },
 
     "theme": {

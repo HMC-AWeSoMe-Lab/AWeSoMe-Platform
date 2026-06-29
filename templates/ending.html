@@ -134,8 +134,9 @@
 {% block body %}
 <div class="welcome-wrapper">
   <h1 class="welcome-title">Thank You!</h1>
-  <p class="welcome-subtitle">Thank you for your participation. Before you log out, please complete the ending questionnaire below.</p>
+  <p class="welcome-subtitle">Thank you for your participation.{% if exit_questionnaire_enabled %} Before you log out, please complete the ending questionnaire below.{% endif %}</p>
 
+  {% if exit_questionnaire_enabled %}
   <div class="welcome-section">
     <h2>Ending Questionnaire</h2>
     <div class="content-area">
@@ -150,57 +151,60 @@
       </div>
     </div>
   </div>
+  {% endif %}
 
   <button class="go-btn" id="submit-btn" disabled>Submit &amp; Finish</button>
 </div>
 
 <script>
+  const exitQuestionnaireEnabled = ( exit_questionnaire_enabled | tojson );
   const radios = document.querySelectorAll('input[type="radio"]');
   const submitBtn = document.getElementById('submit-btn');
 
-  function checkAllAnswered() {
-    // Get all unique question names
-    const names = [...new Set([...radios].map(r => r.name))];
-    // Check that at least one radio in each group is selected
-    const allAnswered = names.every(name =>
-      document.querySelector(`input[name="${name}"]:checked`)
-    );
-    if (allAnswered) {
-      submitBtn.disabled = false;
-      submitBtn.classList.add('enabled');
-    } else {
-      submitBtn.disabled = true;
-      submitBtn.classList.remove('enabled');
+  if (!exitQuestionnaireEnabled) {
+    submitBtn.disabled = false;
+    submitBtn.classList.add('enabled');
+  } else {
+    function checkAllAnswered() {
+      const names = [...new Set([...radios].map(r => r.name))];
+      const allAnswered = names.every(name =>
+        document.querySelector(`input[name="${name}"]:checked`)
+      );
+      if (allAnswered) {
+        submitBtn.disabled = false;
+        submitBtn.classList.add('enabled');
+      } else {
+        submitBtn.disabled = true;
+        submitBtn.classList.remove('enabled');
+      }
     }
+    radios.forEach(r => r.addEventListener('change', checkAllAnswered));
   }
-
-  radios.forEach(r => r.addEventListener('change', checkAllAnswered));
 
   submitBtn.addEventListener('click', async function () {
     if (submitBtn.disabled) return;
 
-    // Collect all radio answers
-    const responses = {};
-    document.querySelectorAll('input[type="radio"]:checked').forEach(r => {
-      responses[r.name] = r.value;
-    });
-
-    // POST to backend before navigating
-    try {
-      await fetch('/submit_questionnaire', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          questionnaire: 'ending',
-          responses,
-          currentTimestamp: new Date().toISOString()
-        })
+    if (exitQuestionnaireEnabled) {
+      const responses = {};
+      document.querySelectorAll('input[type="radio"]:checked').forEach(r => {
+        responses[r.name] = r.value;
       });
-    } catch (e) {
-      console.error('Failed to save questionnaire responses:', e);
+
+      try {
+        await fetch('/submit_questionnaire', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            questionnaire: 'ending',
+            responses,
+            currentTimestamp: new Date().toISOString()
+          })
+        });
+      } catch (e) {
+        console.error('Failed to save questionnaire responses:', e);
+      }
     }
 
-    // Clear session storage since the study is complete
     sessionStorage.clear();
     window.location.href = '/done';
   });

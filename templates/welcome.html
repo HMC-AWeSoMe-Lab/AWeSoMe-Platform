@@ -154,7 +154,8 @@
     <h2>Introduction</h2>
     <div class="content-area">Add your project introduction in the file <code>welcome.html</code>!</div>
   </div>
- 
+
+  {% if entry_questionnaire_enabled %}
   <div class="welcome-section">
     <h2>Beginning Questionnaire</h2>
     <div class="content-area">
@@ -169,6 +170,7 @@
       </div>
     </div>
   </div>
+  {% endif %}
  
   <div class="welcome-section">
     <div class="consent-row">
@@ -181,10 +183,19 @@
 </div>
  
 <script>
+  const entryQuestionnaireEnabled = ( entry_questionnaire_enabled | tojson );
   const checkbox = document.getElementById('consent-checkbox');
   const goBtn = document.getElementById('go-btn');
- 
+
+  // Consent logic always runs, regardless of questionnaire toggle
+  if (sessionStorage.getItem('welcome_consent') === 'true') {
+    checkbox.checked = true;
+    goBtn.disabled = false;
+    goBtn.classList.add('enabled');
+  }
+
   checkbox.addEventListener('change', function () {
+    sessionStorage.setItem('welcome_consent', this.checked);
     if (this.checked) {
       goBtn.disabled = false;
       goBtn.classList.add('enabled');
@@ -193,57 +204,48 @@
       goBtn.classList.remove('enabled');
     }
   });
- 
+
+  // Questionnaire save/restore only runs when the questionnaire is shown
+  if (entryQuestionnaireEnabled) {
+    const q1Radios = document.querySelectorAll('input[name="q1"]');
+
+    const savedQ1 = sessionStorage.getItem('welcome_q1');
+    if (savedQ1) {
+      q1Radios.forEach(r => { if (r.value === savedQ1) r.checked = true; });
+    }
+
+    q1Radios.forEach(r => {
+      r.addEventListener('change', function () {
+        sessionStorage.setItem('welcome_q1', this.value);
+      });
+    });
+  }
+
   goBtn.addEventListener('click', async function () {
     if (goBtn.disabled) return;
- 
-    // Collect all radio answers
-    const responses = {};
-    document.querySelectorAll('input[type="radio"]:checked').forEach(r => {
-      responses[r.name] = r.value;
-    });
- 
-    // POST to backend before navigating
-    try {
-      await fetch('/submit_questionnaire', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          questionnaire: 'beginning',
-          responses,
-          currentTimestamp: new Date().toISOString()
-        })
+
+    if (entryQuestionnaireEnabled) {
+      const responses = {};
+      document.querySelectorAll('input[type="radio"]:checked').forEach(r => {
+        responses[r.name] = r.value;
       });
-    } catch (e) {
-      console.error('Failed to save questionnaire responses:', e);
+
+      try {
+        await fetch('/submit_questionnaire', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            questionnaire: 'beginning',
+            responses,
+            currentTimestamp: new Date().toISOString()
+          })
+        });
+      } catch (e) {
+        console.error('Failed to save questionnaire responses:', e);
+      }
     }
- 
+
     window.location.href = '/trajectory-summary';
   });
-// Save and restore questionnaire answers across navigation
-const q1Radios = document.querySelectorAll('input[name="q1"]');
-  const consentBox = document.getElementById('consent-checkbox');
- 
-  // Restore saved answers
-  const savedQ1 = sessionStorage.getItem('welcome_q1');
-  if (savedQ1) {
-    q1Radios.forEach(r => { if (r.value === savedQ1) r.checked = true; });
-  }
-  if (sessionStorage.getItem('welcome_consent') === 'true') {
-    consentBox.checked = true;
-    goBtn.disabled = false;
-    goBtn.classList.add('enabled');
-  }
- 
-  // Save on change
-  q1Radios.forEach(r => {
-    r.addEventListener('change', function () {
-      sessionStorage.setItem('welcome_q1', this.value);
-    });
-  });
-  consentBox.addEventListener('change', function () {
-    sessionStorage.setItem('welcome_consent', this.checked);
-  });
-  
 </script>
 {% endblock %}

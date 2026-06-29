@@ -92,6 +92,9 @@ with open(settings_path, "r") as file:
     reading_timer_enabled = settings["interventions"]["readingTimerEnabled"]
     min_comment_length = settings["interventions"]["minCommentLength"]
     reply_to_anywhere = settings["interventions"].get("replyToAnywhere", True)
+    trajectory_summary_enabled = settings["interventions"].get("trajectorySummaryEnabled", True)
+    entry_questionnaire_enabled = settings["interventions"].get("entryQuestionnaireEnabled", True)
+    exit_questionnaire_enabled = settings["interventions"].get("exitQuestionnaireEnabled", True)
  
 @app.route('/')
 def root():
@@ -100,8 +103,8 @@ def root():
  
 @app.route('/welcome', methods=['GET'])
 def welcome():
-    return render_template('welcome.html')
-trajectory_summary_enabled = settings["interventions"].get("trajectorySummaryEnabled", True)
+    return render_template('welcome.html', entry_questionnaire_enabled=entry_questionnaire_enabled)
+
 @app.route('/trajectory-summary', methods=['GET'])
 def trajectory_summary():
     convo = get_or_create_convo()
@@ -310,7 +313,7 @@ def submit_questionnaire():
 def ending():
     if not session.get('has_commented'):
         return redirect(url_for('index'))
-    return render_template('ending.html')
+    return render_template('ending.html', exit_questionnaire_enabled=exit_questionnaire_enabled)
 
 
 @app.route('/done', methods=['GET'])
