@@ -153,11 +153,11 @@
   </div>
   {% endif %}
 
-  <button class="go-btn" id="submit-btn" disabled>Submit &amp; Finish</button>
+  <button class="go-btn" id="submit-btn" disabled data-exit-questionnaire="{{ 'true' if exit_questionnaire_enabled else 'false' }}">Submit &amp; Finish</button>
 </div>
 
 <script>
-  const exitQuestionnaireEnabled = {{ exit_questionnaire_enabled | tojson }};
+  const exitQuestionnaireEnabled = document.getElementById('submit-btn').dataset.exitQuestionnaire === 'true';
   const radios = document.querySelectorAll('input[type="radio"]');
   const submitBtn = document.getElementById('submit-btn');
 
