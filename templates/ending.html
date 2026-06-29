@@ -157,7 +157,7 @@
 </div>
 
 <script>
-  const exitQuestionnaireEnabled = ( exit_questionnaire_enabled | tojson );
+  const exitQuestionnaireEnabled = {{ exit_questionnaire_enabled | tojson }};
   const radios = document.querySelectorAll('input[type="radio"]');
   const submitBtn = document.getElementById('submit-btn');
 
