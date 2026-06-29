@@ -82,7 +82,7 @@ def get_or_create_convo():
  
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 settings_path = os.path.join(BASE_DIR, 'static', 'settings.json')
- 
+
 # Grabs current settings from settings.json
 with open(settings_path, "r") as file:
     settings = json.load(file)
@@ -93,16 +93,27 @@ with open(settings_path, "r") as file:
     min_comment_length = settings["interventions"]["minCommentLength"]
     reply_to_anywhere = settings["interventions"].get("replyToAnywhere", True)
     trajectory_summary_enabled = settings["interventions"].get("trajectorySummaryEnabled", True)
-    entry_questionnaire_enabled = settings["interventions"].get("entryQuestionnaireEnabled", True)
-    exit_questionnaire_enabled = settings["interventions"].get("exitQuestionnaireEnabled", True)
- 
+    welcome_page_enabled = settings["interventions"].get("welcomePageEnabled", True)
+    # entryQuestionnaireEnabled is only meaningful if welcomePageEnabled is True
+    entry_questionnaire_enabled = welcome_page_enabled and settings["interventions"].get("entryQuestionnaireEnabled", True)
+    exit_page_enabled = settings["interventions"].get("exitPageEnabled", True)
+    # exitQuestionnaireEnabled is only meaningful if exitPageEnabled is True
+    exit_questionnaire_enabled = exit_page_enabled and settings["interventions"].get("exitQuestionnaireEnabled", True)
+
 @app.route('/')
 def root():
-    return redirect(url_for('welcome'))
- 
- 
+    if welcome_page_enabled:
+        return redirect(url_for('welcome'))
+    if trajectory_summary_enabled:
+        return redirect(url_for('trajectory_summary'))
+    return redirect(url_for('index'))
+
 @app.route('/welcome', methods=['GET'])
 def welcome():
+    if not welcome_page_enabled:
+        if trajectory_summary_enabled:
+            return redirect(url_for('trajectory_summary'))
+        return redirect(url_for('index'))
     return render_template('welcome.html', entry_questionnaire_enabled=entry_questionnaire_enabled)
 
 @app.route('/trajectory-summary', methods=['GET'])
@@ -117,6 +128,14 @@ def trajectory_summary():
         'trajectory_summary.html',
         trajectory_summary=summary
     )
+
+@app.route('/ending', methods=['GET'])
+def ending():
+    if not exit_page_enabled:
+        return redirect(url_for('done'))
+    if not session.get('has_commented'):
+        return redirect(url_for('index'))
+    return render_template('ending.html', exit_questionnaire_enabled=exit_questionnaire_enabled)
  
 @app.route('/chat', methods=['POST', 'GET'])
 def index():
@@ -309,11 +328,6 @@ def submit_questionnaire():
     return jsonify({'ok': True, 'stored': len(responses)})
 
 
-@app.route('/ending', methods=['GET'])
-def ending():
-    if not session.get('has_commented'):
-        return redirect(url_for('index'))
-    return render_template('ending.html', exit_questionnaire_enabled=exit_questionnaire_enabled)
 
 
 @app.route('/done', methods=['GET'])
