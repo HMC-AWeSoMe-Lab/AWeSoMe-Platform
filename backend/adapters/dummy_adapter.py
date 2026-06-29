@@ -1,6 +1,5 @@
 from backend.convo_interface import ConvoInterface, Conversation, Utterance, Speaker
 from typing import List, Dict
-import random
 
 
 class DummyAdapter(ConvoInterface):
@@ -60,15 +59,11 @@ class DummyAdapter(ConvoInterface):
 
         return self
 
-    def random_conversation(self) -> Conversation:
-        """Return a random conversation (only one exists in dummy data)."""
-        return random.choice(list(self._conversations.values()))
+    def get_conversation_ids(self) -> list:
+        return list(self._conversations.keys())
 
     def get_conversation(self, convo_id: str) -> Conversation:
         return self._conversations[convo_id]
-
-    def iter_conversations(self):
-        return iter(self._conversations.values())
 
     def get_speaker(self, speaker_id: str) -> Speaker:
         return self._speakers[speaker_id]

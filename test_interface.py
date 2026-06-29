@@ -31,24 +31,21 @@ class MockFetcher(ConvoInterface):
                 ]
             )
         ]
-        return self  # return self since there's no Corpus object
+        return self
 
-    def random_conversation(self):
-        import random
-        return random.choice(self._conversations)
+    def get_conversation_ids(self):
+        return [c.id for c in self._conversations]
 
     def get_conversation(self, convo_id):
         return next(c for c in self._conversations if c.id == convo_id)
 
-    def iter_conversations(self):
-        return iter(self._conversations)
-
 
 if __name__ == "__main__":
+    import random
     fetcher = MockFetcher()
     fetcher.load()
 
-    convo = fetcher.random_conversation()
+    convo = fetcher.get_conversation(random.choice(fetcher.get_conversation_ids()))
     print("Conversation:", convo.id)
     for msg in convo.get_chronological_message_list():
         print(f"  [{msg.speaker_id}] {msg.text}")

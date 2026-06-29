@@ -2,6 +2,7 @@ from config import active_adapter
 import markdown
 import os
 import json
+import random
 from datetime import datetime, timezone
 import pytz
 
@@ -19,12 +20,11 @@ def get_convo():
         return None
     else:
         while True:
-            convo = active_adapter.random_conversation()
+            convo = active_adapter.get_conversation(random.choice(active_adapter.get_conversation_ids()))
             msgs = list(convo.iter_utterances())
             root = next((m for m in msgs if m.reply_to is None), None)
             if root and len(root.text.strip()) > 20:
                 return convo
-
 
 def get_trajectory_summary(convo):
     if convo is None:

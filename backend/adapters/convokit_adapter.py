@@ -1,6 +1,5 @@
 from convokit import Corpus as ConvoKitCorpus, download as convokit_download
 from backend.convo_interface import ConvoInterface, Conversation, Utterance, Speaker
-import random
 
 
 class ConvoKitAdapter(ConvoInterface):
@@ -117,14 +116,11 @@ class ConvoKitAdapter(ConvoInterface):
         else:
             print("Warning: corpus_source is not a local path; cannot save.")
 
-    def random_conversation(self) -> Conversation:
-        return random.choice(list(self._conversations.values()))
+    def get_conversation_ids(self) -> list:
+        return list(self._conversations.keys())
 
     def get_conversation(self, convo_id: str) -> Conversation:
         return self._conversations[convo_id]
-
-    def iter_conversations(self):
-        return iter(self._conversations.values())
 
     def get_speaker(self, speaker_id: str) -> Speaker:
         return self._speakers[speaker_id]

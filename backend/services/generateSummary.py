@@ -8,11 +8,12 @@ from backend.convo_interface.interface import ConvoInterface
 CHECKPOINT_EVERY = 500
 
 def generate_summaries(interface: ConvoInterface, overwrite=False):
-    convos = list(interface.iter_conversations())
-    total = len(convos)
+    convo_ids = interface.get_conversation_ids()
+    total = len(convo_ids)
     generated = 0
 
-    for i, convo in enumerate(convos):
+    for i, convo_id in enumerate(convo_ids):
+        convo = interface.get_conversation(convo_id)
         existing = (convo.meta.get("trajectory_summary") or "").strip()
         if existing and not overwrite:
             print(f"[{i+1}/{total}] {convo.id} — skipping (already has summary)")

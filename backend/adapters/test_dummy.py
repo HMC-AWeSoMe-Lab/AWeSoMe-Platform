@@ -19,15 +19,16 @@ def run_tests():
     adapter.load()
     print("Load complete.\n")
 
-    # --- Test 1: iter_conversations() ---
-    print("--- Test 1: iter_conversations() ---")
-    convos = list(adapter.iter_conversations())
-    assert len(convos) == 1, f"Expected 1 conversation, got {len(convos)}"
-    print(f"Found {len(convos)} conversation(s). OK\n")
+    # --- Test 1: get_conversation_ids() ---
+    print("--- Test 1: get_conversation_ids() ---")
+    convo_ids = adapter.get_conversation_ids()
+    assert len(convo_ids) == 1, f"Expected 1 conversation, got {len(convo_ids)}"
+    print(f"Found {len(convo_ids)} conversation id(s). OK\n")
 
-    # --- Test 2: random_conversation() ---
-    print("--- Test 2: random_conversation() ---")
-    convo = adapter.random_conversation()
+    # --- Test 2: random conversation via get_conversation_ids() + get_conversation() ---
+    print("--- Test 2: random conversation (get_conversation_ids + get_conversation) ---")
+    import random
+    convo = adapter.get_conversation(random.choice(adapter.get_conversation_ids()))
     print(f"Random conversation id: {convo.id}")
     assert convo.id == "dummy_convo", "Unexpected conversation id"
     print("OK\n")

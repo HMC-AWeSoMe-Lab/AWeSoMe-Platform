@@ -20,21 +20,25 @@ class ConvoInterface(abc.ABC):
                 self._speakers = {...}
                 return self
 
-            def random_conversation(self):
-                import random
-                return random.choice(list(self._conversations.values()))
+            def get_conversation_ids(self):
+                return list(self._conversations.keys())
 
             def get_conversation(self, convo_id):
                 return self._conversations[convo_id]
-
-            def iter_conversations(self):
-                return iter(self._conversations.values())
 
             def get_speaker(self, speaker_id):
                 return self._speakers[speaker_id]
 
             def get_utterance(self, convo_id, utt_id):
                 return self._conversations[convo_id].get_utterance(utt_id)
+
+    Helper patterns (no longer abstract methods):
+        - Iterate all conversations:
+            for cid in adapter.get_conversation_ids():
+                convo = adapter.get_conversation(cid)
+        - Pick a random conversation:
+            import random
+            convo = adapter.get_conversation(random.choice(adapter.get_conversation_ids()))
     """
 
     @abc.abstractmethod
@@ -47,18 +51,13 @@ class ConvoInterface(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def random_conversation(self) -> Conversation:
-        """Return a random Conversation."""
+    def get_conversation_ids(self) -> list:
+        """Return a list of all conversation ids."""
         raise NotImplementedError
 
     @abc.abstractmethod
     def get_conversation(self, convo_id: str) -> Conversation:
         """Return a Conversation by id."""
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def iter_conversations(self):
-        """Iterate over all Conversations."""
         raise NotImplementedError
 
     @abc.abstractmethod

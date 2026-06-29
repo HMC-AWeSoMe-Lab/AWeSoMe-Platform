@@ -24,11 +24,11 @@ class FakeInterface(ConvoInterface):
     def load(self):
         return self
 
+    def get_conversation_ids(self):
+        return list(self._conversations.keys())
+
     def get_conversation(self, convo_id):
         return self._conversations[convo_id]
-
-    def iter_conversations(self):
-        return iter(self._conversations.values())
 
     def get_user(self, user_id):
         return self._users[user_id]
