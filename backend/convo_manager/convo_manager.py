@@ -15,13 +15,20 @@ admin_mode = False
 def get_convo():
     if admin_mode:
         return None
-    else:
+
+    with open(settings_path, "r") as file:
+        settings = json.load(file)
+    convo_setting = settings.get("interventions", {}).get("conversation", "Random")
+
+    if convo_setting == "Random":
         while True:
             convo = active_adapter.get_conversation(random.choice(active_adapter.get_conversation_ids()))
             msgs = list(convo.iter_utterances())
             root = next((m for m in msgs if m.reply_to is None), None)
             if root and len(root.text.strip()) > 20:
                 return convo
+    else:
+        return active_adapter.get_conversation(convo_setting)
 
 utt_ids = []
 user_dict = {}
@@ -97,19 +104,6 @@ def display_convo(c, comment_content=None):
 
     def get_depth(utt):
         return depth_map.get(utt.id, 1)
-
-    summary = c.meta.get("conversation_summary", "")
-    summary = summary.strip()
-
-    if summary:
-        reply_list.append(f'''
-            <div class="comment__container" style="margin-left:1rem; margin-top: 1rem;">
-                <div id="conversation-summary" class="comment__card">
-                    <h3 class="comment__title">Conversation Summary</h3>
-                    <p>{summary}</p>
-                </div>
-            </div>
-        ''')
 
     for utt in sorted_utts:
         user_dict[str(utt.speaker_id)] = ""
