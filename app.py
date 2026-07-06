@@ -92,7 +92,11 @@ with open(settings_path, "r") as file:
     reading_timer_enabled = settings["interventions"]["readingTimerEnabled"]
     min_comment_length = settings["interventions"]["minCommentLength"]
     reply_to_anywhere = settings["interventions"].get("replyToAnywhere", True)
-    trajectory_summary_enabled = settings["interventions"].get("trajectorySummaryEnabled", True)
+    # instructionEnabled toggles the whole Instruction page (route)
+    instruction_enabled = settings["interventions"].get("instructionEnabled", True)
+    # trajectorySummaryBoxEnabled toggles just the trajectory summary box within the page;
+    # the box is only ever shown if a summary actually exists for the conversation
+    trajectory_summary_box_enabled = settings["interventions"].get("trajectorySummaryBoxEnabled", True)
     welcome_page_enabled = settings["interventions"].get("welcomePageEnabled", True)
     # entryQuestionnaireEnabled is only meaningful if welcomePageEnabled is True
     entry_questionnaire_enabled = welcome_page_enabled and settings["interventions"].get("entryQuestionnaireEnabled", True)
@@ -104,29 +108,34 @@ with open(settings_path, "r") as file:
 def root():
     if welcome_page_enabled:
         return redirect(url_for('welcome'))
-    if trajectory_summary_enabled:
-        return redirect(url_for('trajectory_summary'))
+    if instruction_enabled:
+        return redirect(url_for('instruction'))
     return redirect(url_for('index'))
 
 @app.route('/welcome', methods=['GET'])
 def welcome():
     if not welcome_page_enabled:
-        if trajectory_summary_enabled:
-            return redirect(url_for('trajectory_summary'))
+        if instruction_enabled:
+            return redirect(url_for('instruction'))
         return redirect(url_for('index'))
     return render_template('welcome.html', entry_questionnaire_enabled=entry_questionnaire_enabled)
 
-@app.route('/trajectory-summary', methods=['GET'])
-def trajectory_summary():
+@app.route('/instruction', methods=['GET'])
+def instruction():
+    if not instruction_enabled:
+        return redirect(url_for('index'))
+
     convo = get_or_create_convo()
     summary = get_trajectory_summary(convo)
 
-    if not trajectory_summary_enabled or not summary or not summary.strip():
-        return redirect(url_for('index'))
+    # Only show the trajectory summary box if a summary exists for this conversation
+    # AND the box is toggled on in settings.json. If no summary exists, it never shows.
+    show_trajectory_summary = bool(summary) and trajectory_summary_box_enabled
 
     return render_template(
-        'trajectory_summary.html',
-        trajectory_summary=summary
+        'instruction.html',
+        trajectory_summary=summary,
+        show_trajectory_summary=show_trajectory_summary
     )
 
 @app.route('/ending', methods=['GET'])

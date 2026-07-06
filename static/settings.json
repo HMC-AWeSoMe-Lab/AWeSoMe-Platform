@@ -1,14 +1,15 @@
 {
   "interventions": {
-    "conversation": "d67uf3c",
-    "readingTimerEnabled": false,
-    "minCommentLength": 0,
-    "replyToAnywhere": false,
-    "trajectorySummaryEnabled": true,
+    "conversation": "Random",
+    "readingTimerEnabled": true,
+    "minCommentLength": 10,
+    "replyToAnywhere": true,
+    "instructionEnabled": false,
+    "trajectorySummaryBoxEnabled": true,
     "welcomePageEnabled": true,
-    "entryQuestionnaireEnabled": false,
+    "entryQuestionnaireEnabled": true,
     "exitPageEnabled": true,
-    "exitQuestionnaireEnabled": false
+    "exitQuestionnaireEnabled": true
   },
 
   "theme": {
