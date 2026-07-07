@@ -64,6 +64,10 @@ class DummyAdapter(ConvoInterface):
 
     def get_conversation(self, convo_id: str) -> Conversation:
         return self._conversations[convo_id]
+    
+    def pick_conversation(self) -> Conversation:
+        """Adapter-specific: only one conversation exists, so just return it."""
+        return next(iter(self._conversations.values()))
 
     def get_speaker(self, speaker_id: str) -> Speaker:
         return self._speakers[speaker_id]

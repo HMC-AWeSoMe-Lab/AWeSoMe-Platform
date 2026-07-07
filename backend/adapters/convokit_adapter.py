@@ -1,6 +1,8 @@
 from convokit import Corpus as ConvoKitCorpus, download as convokit_download
 from backend.convo_interface import ConvoInterface, Conversation, Utterance, Speaker
-
+import json
+import os
+import random
 
 class ConvoKitAdapter(ConvoInterface):
     """
@@ -121,6 +123,32 @@ class ConvoKitAdapter(ConvoInterface):
 
     def get_conversation(self, convo_id: str) -> Conversation:
         return self._conversations[convo_id]
+    
+    def pick_conversation(self) -> Conversation:
+        """
+        Adapter-specific: decide which conversation to serve when no
+        specific id is requested. Not part of ConvoInterface — this
+        logic is entirely local to ConvoKitAdapter.
+
+        Reads "interventions.conversation" from settings.json: a specific
+        conversation id, or "Random" to pick randomly (skipping any whose
+        root utterance is missing or under 20 characters).
+        """
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        settings_path = os.path.join(base_dir, 'static', 'settings.json')
+        with open(settings_path, "r") as file:
+            settings = json.load(file)
+        convo_setting = settings.get("interventions", {}).get("conversation", "Random")
+
+        if convo_setting != "Random" and convo_setting in self._conversations:
+            return self._conversations[convo_setting]
+
+        while True:
+            convo = self._conversations[random.choice(list(self._conversations.keys()))]
+            msgs = list(convo.iter_utterances())
+            root = next((m for m in msgs if m.reply_to is None), None)
+            if root and len(root.text.strip()) > 20:
+                return convo
 
     def get_speaker(self, speaker_id: str) -> Speaker:
         return self._speakers[speaker_id]

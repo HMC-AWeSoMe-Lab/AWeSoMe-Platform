@@ -15,20 +15,7 @@ admin_mode = False
 def get_convo():
     if admin_mode:
         return None
-
-    with open(settings_path, "r") as file:
-        settings = json.load(file)
-    convo_setting = settings.get("interventions", {}).get("conversation", "Random")
-
-    if convo_setting == "Random":
-        while True:
-            convo = active_adapter.get_conversation(random.choice(active_adapter.get_conversation_ids()))
-            msgs = list(convo.iter_utterances())
-            root = next((m for m in msgs if m.reply_to is None), None)
-            if root and len(root.text.strip()) > 20:
-                return convo
-    else:
-        return active_adapter.get_conversation(convo_setting)
+    return active_adapter.pick_conversation()
 
 utt_ids = []
 user_dict = {}
