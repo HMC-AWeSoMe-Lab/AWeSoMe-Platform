@@ -1,6 +1,6 @@
 {
   "interventions": {
-    "readingTimerEnabled": true,
+    "readingTimerEnabled": false,
     "minCommentLength": 10,
     "replyToAnywhere": true,
     "instructionEnabled": false,

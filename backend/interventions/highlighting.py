@@ -54,13 +54,17 @@ class HighlightingIntervention(BaseIntervention):
         # Get highlight ranges using the provided function
         highlight_ranges = self.highlight_func(text or "")
 
-        if highlight_ranges:
-            reason = infer_trigger_reason(
-                text,
-                default=f"{len(highlight_ranges)} portion(s) of the user's comment matched the highlighting criteria"
-            )
-        else:
-            reason = "No matching text found to highlight"
+        # Nothing to highlight — don't fire the intervention at all.
+        # Returning None means no DB row is written and the frontend receives
+        # no highlighting payload, which is correct: the intervention only
+        # "fires" when there is actually something to highlight.
+        if not highlight_ranges:
+            return None
+
+        reason = infer_trigger_reason(
+            text,
+            default=f"{len(highlight_ranges)} portion(s) of the user's comment matched the highlighting criteria"
+        )
 
         return {
             "type": "highlighting",

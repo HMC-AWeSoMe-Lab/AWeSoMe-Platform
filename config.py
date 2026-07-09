@@ -6,12 +6,12 @@
 # To switch to the real ConvoKit corpus, replace the three
 # lines below with:
 #
-from backend.adapters.convokit_adapter import ConvoKitAdapter
-active_adapter = ConvoKitAdapter("/home/hrepp/SCD-corpus")
-active_adapter.load()
+#from backend.adapters.convokit_adapter import ConvoKitAdapter
+#active_adapter = ConvoKitAdapter("/home/hrepp/SCD-corpus")
+#active_adapter.load()
 # -------------------------------------------------------
 
-#from backend.adapters.dummy_adapter import DummyAdapter
-#from backend.adapters.test_data import DUMMY_CONVERSATION
-#active_adapter = DummyAdapter(DUMMY_CONVERSATION)
-#active_adapter.load()
+from backend.adapters.dummy_adapter import DummyAdapter
+from backend.adapters.test_data import DUMMY_CONVERSATION
+active_adapter = DummyAdapter(DUMMY_CONVERSATION)
+active_adapter.load()

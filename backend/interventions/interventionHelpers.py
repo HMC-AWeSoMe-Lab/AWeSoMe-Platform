@@ -1,5 +1,11 @@
 from backend.services.SCD_helpers import get_SCD
 
+TRIGGER_WORDS = ["stupid", "idiot", "hate", "angry", "dumb", "terrible", "awful", "test"]
+
+# Single source of truth for all trigger words used by highlighting, popup,
+# and reason-inference. Add or remove words here and every intervention
+# updates automatically — no more lists getting out of sync.
+
 def text_to_insert(convo):
     """
     Get SCD (Stance Change Dialog) text for a conversation.
@@ -37,9 +43,16 @@ def infer_trigger_reason(text, default="Intervention conditions were met"):
 
     text_lower = text.lower()
 
-    for word in TRIGGER_WORDS:
-        if word in text_lower:
-            return f'The user\'s comment includes the trigger word "{word}"'
+    # Collect ALL matching trigger words so no word is silently dropped when
+    # multiple trigger words appear in the same comment (e.g. "stupid" was
+    # returned first before, hiding "angry", "test", etc.).
+    matched = [word for word in TRIGGER_WORDS if word in text_lower]
+
+    if matched:
+        if len(matched) == 1:
+            return f'The user\'s comment includes the trigger word "{matched[0]}"'
+        words_str = ", ".join(f'"{w}"' for w in matched)
+        return f'The user\'s comment includes the trigger words {words_str}'
 
     if len(text) > 200:
         return "The user's comment is unusually long"
@@ -96,8 +109,8 @@ def simple_highlight_logic(text):
     
     ranges = []
     text_lower = text.lower()
-    # Test with some words
-    words = ["test", "stupid", "hate", "angry"]
+    # Use the shared TRIGGER_WORDS list so highlighting and popup always match.
+    words = TRIGGER_WORDS
     
     for word in words:
         start = 0
@@ -200,8 +213,8 @@ def default_highlight_logic(text):
     if not text:
         return []
         
-    # Example: highlight words that might be problematic
-    problematic_words = ["stupid", "idiot", "hate", "terrible", "awful", "dumb"]
+    # Use the shared TRIGGER_WORDS list so highlighting and popup always match.
+    problematic_words = TRIGGER_WORDS
     ranges = []
     text_lower = text.lower()
     
@@ -220,7 +233,6 @@ def default_highlight_logic(text):
     return ranges
 
 
-TRIGGER_WORDS = ["stupid", "idiot", "hate", "angry", "dumb", "terrible", "awful", "test"]
 
 def submit_check_logic(text):
     """
