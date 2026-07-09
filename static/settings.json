@@ -1,6 +1,5 @@
 {
   "interventions": {
-    "conversation": "Random",
     "readingTimerEnabled": true,
     "minCommentLength": 10,
     "replyToAnywhere": true,

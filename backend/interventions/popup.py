@@ -1,5 +1,6 @@
 # backend/interventions/popup.py
 from backend.interventions.base import BaseIntervention
+from backend.interventions.interventionHelpers import infer_trigger_reason
 
 class PopupIntervention(BaseIntervention):
     """
@@ -68,6 +69,7 @@ class PopupIntervention(BaseIntervention):
         return {
             "type": "popup",
             "blocking": self.blocking,
+            "reason": infer_trigger_reason(text),
             "html": f"""<div class="popup" id="popup"
                         data-intervention-type="popup"
                         data-event-id="POPUP">

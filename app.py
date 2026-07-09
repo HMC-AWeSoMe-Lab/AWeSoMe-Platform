@@ -2,7 +2,8 @@ from flask import *
 from backend.convo_manager.convo_manager import get_convo, display_convo, get_reply_id, get_convo_depth_css, get_trajectory_summary
 from backend.mode_assignment import add_intervention
 from config import active_adapter
-from backend.database.database import insert_posts, update_latest_interaction_id, dump_payloads_db, insert_trial_mode, insert_questionnaire_response
+from backend.database.database import insert_posts, update_latest_interaction_id, dump_payloads_db, insert_trial_mode, insert_questionnaire_response, insert_triggered_intervention
+from backend.interventions.base import DEFAULT_TRIGGER_REASON
 from backend.interventions.interventionHelpers import *
 from backend.interventions.popup import PopupIntervention
 from backend.interventions.feedbackBox import feedbackBoxIntervention
@@ -200,6 +201,19 @@ def get_all_interventions():
             )
             if result is not None:
                 results.append(result)
+
+                # Record that this intervention fired, for research analysis.
+                # This works for any current or future intervention type: it only
+                # relies on the generic "type"/"reason" keys in the payload, with
+                # graceful fallbacks if a custom intervention doesn't set them.
+                insert_triggered_intervention(
+                    interaction_id=data.get("latestID"),
+                    intervention_type=result.get("type", intervention.__class__.__name__),
+                    trigger_reason=result.get("reason", DEFAULT_TRIGGER_REASON),
+                    content=result.get("html") or json.dumps(result),
+                    current_timestamp=data.get("currentTimestamp"),
+                    trigger_event=result.get("triggerEvent", data.get("triggerEvent")),
+                )
         except ValueError as e:
             error_message = f"Intervention Configuration Error: {str(e)}"
             print(f"❌ {error_message}")

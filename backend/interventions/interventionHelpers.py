@@ -15,6 +15,38 @@ def get_summary_popup_logic(convo):
     from backend.services.SCD_helpers import get_SCD
     return get_SCD(convo)  # reads from convo.meta["conversation_summary"]
 
+def infer_trigger_reason(text, default="Intervention conditions were met"):
+    """
+    Best-effort, generic explanation of *why* an intervention fired, based on
+    the participant's draft text. Used as a fallback when an intervention's
+    get_payload doesn't set its own specific "reason".
+
+    This intentionally stays generic (pattern checks over TRIGGER_WORDS and
+    simple heuristics) so it keeps working as researchers add new trigger
+    words or interventions, without needing to hardcode every case.
+
+    :param text: The participant's draft comment text
+    :type text: str or None
+    :param default: Fallback reason if nothing specific can be inferred
+    :type default: str
+    :return: A specific, human-readable reason if one can be determined
+    :rtype: str
+    """
+    if not text:
+        return default
+
+    text_lower = text.lower()
+
+    for word in TRIGGER_WORDS:
+        if word in text_lower:
+            return f'The user\'s comment includes the trigger word "{word}"'
+
+    if len(text) > 200:
+        return "The user's comment is unusually long"
+
+    return default
+
+
 def default_popup_logic(text):
     """
     Default logic for determining popup text based on user input.

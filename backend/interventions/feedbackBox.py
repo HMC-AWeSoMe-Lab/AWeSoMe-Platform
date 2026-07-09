@@ -1,5 +1,6 @@
 # backend/interventions/feedbackBox.py
 from backend.interventions.base import BaseIntervention
+from backend.interventions.interventionHelpers import infer_trigger_reason
 
 class feedbackBoxIntervention(BaseIntervention):
     """
@@ -68,6 +69,7 @@ class feedbackBoxIntervention(BaseIntervention):
 
         return {
             "type": "feedbackBox",
+            "reason": infer_trigger_reason(text, default="Feedback box conditions were met (e.g. relevant button clicked)"),
             "html": f"""
                 <div class="feedback-box" id="{unique_id}" 
                      data-intervention-type="feedbackBox"

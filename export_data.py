@@ -5,7 +5,7 @@ import os
 db_path = os.path.expanduser("~/AWeSoMe-Platform/backend/database/database.db")
 conn = sqlite3.connect(db_path)
 
-tables = ["posts", "trial_mode", "questionnaire_responses"]
+tables = ["posts", "trial_mode", "questionnaire_responses", "triggered_interventions"]
 
 for table in tables:
     rows = conn.execute(f"SELECT * FROM {table}").fetchall()

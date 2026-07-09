@@ -14,11 +14,12 @@ def add_intervention():
     """
     # Seed with current time and process ID for better randomization
     # This ensures each call gets a different seed, not just each module import
-    random.seed(int(time.time() * 1000000) + os.getpid() + random.randint(0, 100000))
+    #random.seed(int(time.time() * 1000000) + os.getpid() + random.randint(0, 100000))
     
     # 0: control group (no interventions)
     # 1: treatment group (with interventions)
-    return random.randint(0, 1)
+    #return random.randint(0, 1)
+    return 1
 
 
 

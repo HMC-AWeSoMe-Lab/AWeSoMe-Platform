@@ -1,6 +1,6 @@
 # backend/interventions/highlighting.py
 from backend.interventions.base import BaseIntervention
-from backend.interventions.interventionHelpers import default_highlight_logic
+from backend.interventions.interventionHelpers import default_highlight_logic, infer_trigger_reason
 import json
 
 class HighlightingIntervention(BaseIntervention):
@@ -53,10 +53,19 @@ class HighlightingIntervention(BaseIntervention):
             
         # Get highlight ranges using the provided function
         highlight_ranges = self.highlight_func(text or "")
-        
+
+        if highlight_ranges:
+            reason = infer_trigger_reason(
+                text,
+                default=f"{len(highlight_ranges)} portion(s) of the user's comment matched the highlighting criteria"
+            )
+        else:
+            reason = "No matching text found to highlight"
+
         return {
             "type": "highlighting",
             "triggerEvent": self.trigger_event,
+            "reason": reason,
             "enabled": True,
             "highlight_indices": highlight_ranges
         }

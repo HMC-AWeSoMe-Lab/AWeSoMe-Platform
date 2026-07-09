@@ -129,6 +129,38 @@ def insert_questionnaire_response(interaction_id, questionnaire, question_name, 
     conn.commit()
     conn.close()
 
+def insert_triggered_intervention(interaction_id, intervention_type, trigger_reason, content, current_timestamp, trigger_event=None):
+    """
+    Insert a record of a triggered intervention into the 'triggered_interventions' table.
+
+    Deliberately generic: intervention_type and trigger_reason are free-text,
+    so any current or future custom intervention (whatever type or reason
+    a researcher defines) is captured without needing a schema/code change.
+
+    :param interaction_id: Unique ID for the interaction (session) this intervention fired in
+    :type interaction_id: int
+    :param intervention_type: The type of intervention that fired (e.g. 'popup', 'feedbackBox', 'highlighting')
+    :type intervention_type: str
+    :param trigger_reason: Human-readable reason the intervention fired
+        (e.g. 'trigger word "hate" found in comment', 'comment tone flagged as emotional')
+    :type trigger_reason: str
+    :param content: The actual content shown to the participant (e.g. popup message/HTML)
+    :type content: str or None
+    :param current_timestamp: Date/Time the intervention fired
+    :type current_timestamp: datetime
+    :param trigger_event: The event that caused the intervention to be evaluated (e.g. 'onClick', 'onText'), defaults to None
+    :type trigger_event: str or None, optional
+    """
+    conn = get_db_connection()
+
+    query = """INSERT INTO triggered_interventions
+               (interaction_id, intervention_type, trigger_event, trigger_reason, content, current_timestamp)
+               VALUES (?, ?, ?, ?, ?, ?)"""
+    conn.execute(query, (interaction_id, intervention_type, trigger_event, trigger_reason, content, current_timestamp))
+    conn.commit()
+    conn.close()
+
+
 def dump_payloads_db(data):
     """
     Insert multiple posts from the payload queue dump into the 'posts' table.

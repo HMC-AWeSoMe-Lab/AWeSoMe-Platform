@@ -1,11 +1,25 @@
 import abc
 
+# Fallback reason used when an intervention's payload doesn't specify one.
+# Custom interventions researchers add later aren't required to set "reason" —
+# if they don't, this generic fallback is what gets logged.
+DEFAULT_TRIGGER_REASON = "Intervention conditions were met"
+
+
 class BaseIntervention(abc.ABC):
     """
     Abstract base class for all intervention implementations.
     
     This class provides a framework for creating interventions that can be triggered
     by various events and can receive text content and conversation data.
+
+    Payload contract for logging:
+        Concrete `get_payload` implementations should include a "reason" key
+        describing *why* the intervention fired (e.g. 'trigger word "hate"
+        found in comment', 'comment tone flagged as emotional'). This is
+        optional — if omitted, callers fall back to DEFAULT_TRIGGER_REASON —
+        but including a specific reason makes the collected data far more
+        useful for research analysis.
     """
     
     def __init__(self):
