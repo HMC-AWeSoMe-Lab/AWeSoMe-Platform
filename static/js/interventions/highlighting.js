@@ -10,8 +10,18 @@ async function checkHighlightingEnabled() {
     return highlightFeatureEnabled;
 }
 
+// Monotonically increasing counter used to discard stale, out-of-order
+// responses: if the user types quickly, multiple /interventions requests
+// can be in flight at once, and a slower older request can resolve AFTER
+// a newer one — overwriting a correct "no highlights" state with stale
+// highlight data (a "phantom" highlight that lingers after the trigger
+// word has been deleted). Each call captures its own sequence number and
+// only applies its result if it's still the most recent request issued.
+let highlightRequestSeq = 0;
+
 export async function getHighlights(text) {
     appState.setLatestAction("HIGHLIGHT_INTERVENTION", text);
+    const seq = ++highlightRequestSeq;
     try {
         const response = await fetch('/interventions', {
             method: 'POST',
@@ -24,6 +34,13 @@ export async function getHighlights(text) {
             })
         });
         const interventions = await response.json();
+
+        // A newer request has already started (or finished) since this one
+        // was issued — this response is stale, so don't act on it.
+        if (seq !== highlightRequestSeq) {
+            return null;
+        }
+
         const highlightIntervention = interventions.find(i => i.type === "highlighting");
         if (highlightIntervention && highlightIntervention.enabled) {
             return highlightIntervention.highlight_indices || [];
@@ -31,7 +48,7 @@ export async function getHighlights(text) {
         return [];
     } catch (error) {
         console.error("[Highlight] Error fetching highlights:", error);
-        return [];
+        return seq === highlightRequestSeq ? [] : null;
     }
 }
 
@@ -409,6 +426,7 @@ export const updateHighlights = debounce(async () => {
 
     try {
         const ranges = await getHighlights(text);
+        if (ranges === null) return; // stale response — a newer request is already in flight/applied
         if (ranges.length > 0) {
             applyHighlights(textArea, ranges);
         } else {
@@ -494,7 +512,9 @@ export async function triggerHighlighting() {
 
     try {
         const ranges = await getHighlights(text);
+        if (ranges === null) return; // stale response
         if (ranges.length > 0) applyHighlights(textArea, ranges);
+        else removeHighlights();
     } catch (error) {
         console.error("[Highlight] Error in manual trigger:", error);
     }

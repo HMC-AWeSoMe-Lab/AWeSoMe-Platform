@@ -7,7 +7,7 @@ import { setupEventListeners, setupInterventionTriggers } from './events/eventSe
 import { toggleCommentBox } from './events/commentActions.js';
 
 // 🎯 Interventions
-import { initializeHighlighting } from './interventions/highlighting.js';
+import { initializeHighlighting, removeHighlights } from './interventions/highlighting.js';
 import { interventionHandlers } from './interventions/interventionHandlers.js';
 
 // 🛠 Services & State
@@ -177,6 +177,17 @@ export async function triggerInterventions(draft, interactionId, triggerEvent, b
 
     const interventions = await res.json();
 
+    // The backend only includes a "highlighting" entry when there's
+    // something to highlight (returns nothing at all otherwise). That
+    // means an onText check with no matches produces a response with no
+    // highlighting entry — which is the correct signal to clear any
+    // highlights currently shown, not just to do nothing. Without this,
+    // old highlights linger ("phantom" highlights) after the triggering
+    // text is edited/deleted, since no handler ever runs to remove them.
+    if (triggerEvent === "onText" && !interventions.some(d => d && d.type === "highlighting")) {
+      removeHighlights();
+    }
+
     for (const data of interventions) {
       console.log("Processing intervention data:", data.triggerEvent);
       if (!data || data.triggerEvent !== triggerEvent) continue;
@@ -269,4 +280,3 @@ document.addEventListener('DOMContentLoaded', async function () {
 //
 window.triggerInterventions = triggerInterventions;
 window.toggleCommentBox = toggleCommentBox;
-

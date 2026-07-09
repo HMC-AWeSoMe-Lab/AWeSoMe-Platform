@@ -8,6 +8,49 @@ import { appState } from '../services/appState.js';
 let activeFeedbackBoxes = [];
 
 /**
+ * Refreshes an already-rendered feedback box's content in place (text may
+ * have changed since the box was first shown, e.g. the user kept typing),
+ * and re-attaches the "See more" click handler so it keeps working after
+ * the content is swapped out — otherwise the box would freeze after its
+ * first render and clicking the button would silently do nothing new.
+ *
+ * @param {HTMLElement} existingBox - The feedback box element already in the DOM
+ * @param {Object} data - The latest feedback box data from the backend
+ */
+function updateFeedbackBoxContent(existingBox, data) {
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = data.html.trim();
+    const freshBox = wrapper.firstChild;
+
+    if (!freshBox) {
+        console.error(`[FeedbackBox] Failed to parse refreshed feedback box HTML:`, data.html);
+        return;
+    }
+
+    // Swap in the fresh inner content but keep the existing DOM node/id so
+    // any external references (positioning, tracking) stay valid.
+    existingBox.innerHTML = freshBox.innerHTML;
+
+    // Preserve the visibility/display state the box already had.
+    existingBox.style.display = existingBox.style.display || 'block';
+
+    // Re-add text selection logging on the refreshed content.
+    eventHandlers.addTextSelectionLogging(existingBox, "FEEDBACKBOX");
+
+    // The button was just replaced via innerHTML, so its old listener is
+    // gone — re-attach it so "See more" keeps working every time.
+    const feedbackButton = existingBox.querySelector('button');
+    if (feedbackButton) {
+        feedbackButton.addEventListener('click', async () => {
+            const draft = document.getElementById('content')?.value || "";
+            const buttonID = feedbackButton.id;
+            console.log(`Feedback button clicked: ${buttonID}`);
+            await triggerInterventions(draft, appState.latestID, "onClick", buttonID);
+        });
+    }
+}
+
+/**
  * Renders a feedback box intervention in the DOM.
  * Creates the feedback box element, adds event listeners, and positions it relative to a parent.
  * 
@@ -20,10 +63,14 @@ let activeFeedbackBoxes = [];
 export function renderFeedbackBox(data) {
     console.log(`[FeedbackBox] Rendering feedback box with data:`, data);
 
-    // If a feedback box already exists, just reposition it before the reply-box and return
+    // If a feedback box already exists, refresh its content (the underlying
+    // text may have changed since the user is still typing) and reposition
+    // it, rather than freezing it at whatever it first showed.
     const uniqueId = `feedback-box-${data.relation}`;
     const existing = document.getElementById(uniqueId);
     if (existing) {
+        updateFeedbackBoxContent(existing, data);
+
         const replyBox = document.getElementById('reply-box');
         const wrapper = existing.parentNode;
         if (replyBox && wrapper) {

@@ -95,9 +95,9 @@ export function initCommentLengthGuard() {
     if (!textArea) return;
     textArea.addEventListener('input', () => {
         updateSubmitButton(textArea.value);
-        if (textArea.value.trim().length === 0) {
-            clearAllFeedbackBoxes();
-        }
+        // Note: feedback boxes are intentionally left in place when the
+        // textarea becomes blank — they should only go away on cancel/submit,
+        // not just because the user temporarily cleared their draft.
     });
 }
 
@@ -249,6 +249,16 @@ export async function handleCommentCancel() {
 
     const replyBox = document.getElementById('reply-box');
     const hoverBox = domManager.get('hoverBox');
+    const textArea = document.getElementById('content');
+
+    // Clear the draft so it doesn't reappear if the user opens a different
+    // reply box afterward — the textarea element is shared/reused across
+    // reply boxes, so its value otherwise persists across cancels.
+    if (textArea) {
+        textArea.value = '';
+        updateSubmitButton(textArea.value);
+    }
+    removeHighlights();
 
     replyBox.style.display = "none";
     if (hoverBox) hoverBox.style.display = "none";
