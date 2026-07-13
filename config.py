@@ -11,7 +11,13 @@
 #active_adapter.load()
 # -------------------------------------------------------
 
-from backend.adapters.dummy_adapter import DummyAdapter
-from backend.adapters.test_data import DUMMY_CONVERSATION
-active_adapter = DummyAdapter(DUMMY_CONVERSATION)
+#from backend.adapters.dummy_adapter import DummyAdapter
+#from backend.adapters.test_data import DUMMY_CONVERSATION
+#active_adapter = DummyAdapter(DUMMY_CONVERSATION)
+#active_adapter.load()
+
+from backend.adapters.demo_adapter import DemoAdapter
+from backend.adapters.demo_data import DEMO_CONVERSATIONS
+
+active_adapter = DemoAdapter(DEMO_CONVERSATIONS)
 active_adapter.load()

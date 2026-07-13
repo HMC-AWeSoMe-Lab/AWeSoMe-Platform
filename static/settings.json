@@ -1,9 +1,9 @@
 {
   "interventions": {
-    "readingTimerEnabled": false,
+    "readingTimerEnabled": true,
     "minCommentLength": 10,
     "replyToAnywhere": true,
-    "instructionEnabled": false,
+    "instructionEnabled": true,
     "trajectorySummaryBoxEnabled": true,
     "welcomePageEnabled": true,
     "entryQuestionnaireEnabled": true,
