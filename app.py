@@ -89,21 +89,21 @@ with open(settings_path, "r") as file:
     settings = json.load(file)
     placeholder_text = settings["commentBox"]["placeholderText"]
     submit_button_text = settings["commentBox"]["submitButtonText"]
-    # Intervention toggles — edit these in static/settings.json
-    reading_timer_enabled = settings["interventions"]["readingTimerEnabled"]
-    min_comment_length = settings["interventions"]["minCommentLength"]
-    reply_to_anywhere = settings["interventions"].get("replyToAnywhere", True)
-    # instructionEnabled toggles the whole Instruction page (route)
-    instruction_enabled = settings["interventions"].get("instructionEnabled", True)
+    # Feature toggles — edit these in static/settings.json
+    reading_timer_enabled = settings["toggleable_features"]["readingTimerEnabled"]
+    min_comment_length = settings["toggleable_features"]["minCommentLength"]
+    reply_to_anywhere = settings["toggleable_features"].get("replyToAnywhere", True)
+    # instructionPageEnabled toggles the whole Instruction page (route)
+    instruction_enabled = settings["toggleable_features"].get("instructionPageEnabled", True)
     # trajectorySummaryBoxEnabled toggles just the trajectory summary box within the page;
     # the box is only ever shown if a summary actually exists for the conversation
-    trajectory_summary_box_enabled = settings["interventions"].get("trajectorySummaryBoxEnabled", True)
-    welcome_page_enabled = settings["interventions"].get("welcomePageEnabled", True)
+    trajectory_summary_box_enabled = settings["toggleable_features"].get("trajectorySummaryBoxEnabled", True)
+    welcome_page_enabled = settings["toggleable_features"].get("welcomePageEnabled", True)
     # entryQuestionnaireEnabled is only meaningful if welcomePageEnabled is True
-    entry_questionnaire_enabled = welcome_page_enabled and settings["interventions"].get("entryQuestionnaireEnabled", True)
-    exit_page_enabled = settings["interventions"].get("exitPageEnabled", True)
+    entry_questionnaire_enabled = welcome_page_enabled and settings["toggleable_features"].get("entryQuestionnaireEnabled", True)
+    exit_page_enabled = settings["toggleable_features"].get("exitPageEnabled", True)
     # exitQuestionnaireEnabled is only meaningful if exitPageEnabled is True
-    exit_questionnaire_enabled = exit_page_enabled and settings["interventions"].get("exitQuestionnaireEnabled", True)
+    exit_questionnaire_enabled = exit_page_enabled and settings["toggleable_features"].get("exitQuestionnaireEnabled", True)
 
 @app.route('/')
 def root():

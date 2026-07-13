@@ -138,7 +138,7 @@ class ConvoKitAdapter(ConvoInterface):
         settings_path = os.path.join(base_dir, 'static', 'settings.json')
         with open(settings_path, "r") as file:
             settings = json.load(file)
-        convo_setting = settings.get("interventions", {}).get("conversation", "Random")
+        convo_setting = settings.get("toggleable_features", {}).get("conversation", "Random")
 
         if convo_setting != "Random" and convo_setting in self._conversations:
             return self._conversations[convo_setting]

@@ -27,7 +27,7 @@ def display_convo(c, comment_content=None):
         reply_in_comments = bool(settings["commentBox"]["replyInComments"])
         display_score = bool(settings["commentBox"]["displayScore"])
         anon_users = bool(settings["commentBox"]["anon_users"])
-        reply_to_anywhere = bool(settings["interventions"].get("replyToAnywhere", True))
+        reply_to_anywhere = bool(settings["toggleable_features"].get("replyToAnywhere", True))
     
     reply_list = []
     reply_button_html = ""

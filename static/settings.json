@@ -1,9 +1,9 @@
 {
-  "interventions": {
+  "toggleable_features": {
     "readingTimerEnabled": true,
     "minCommentLength": 10,
     "replyToAnywhere": true,
-    "instructionEnabled": true,
+    "instructionPageEnabled": true,
     "trajectorySummaryBoxEnabled": true,
     "welcomePageEnabled": true,
     "entryQuestionnaireEnabled": true,

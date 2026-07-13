@@ -8,7 +8,7 @@ import { triggerInterventions } from '../main.js';
 import { removeHighlights } from '../interventions/highlighting.js';
 import { renderPopup, resetPopupShownFlag } from '../interventions/popup.js';
 
-// Driven by "interventions.minCommentLength" in static/settings.json (0 = disabled)
+// Driven by "toggleable_features.minCommentLength" in static/settings.json (0 = disabled)
 const MIN_COMMENT_LENGTH = window.INTERVENTION_CONFIG?.minCommentLength ?? 10;
 
 let activeReplyContainer = null;
