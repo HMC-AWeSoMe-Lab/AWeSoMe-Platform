@@ -66,6 +66,10 @@ export async function toggleCommentBox(btn) {
 
     const textArea = document.getElementById('content');
     if (textArea) {
+        // The textarea is shared/reused across reply boxes, so clear any
+        // leftover text from a previously opened reply box before showing
+        // this one under its new comment.
+        textArea.value = '';
         setTimeout(() => textArea.focus(), 50);
         updateSubmitButton(textArea.value);
     }
