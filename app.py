@@ -9,6 +9,7 @@ from backend.interventions.popup import PopupIntervention
 from backend.interventions.feedbackBox import feedbackBoxIntervention
 from backend.interventions.highlighting import HighlightingIntervention
 from backend.interventions.interventionHelpers import *
+from backend.services.toxicityHighlight import ContextualToxicityHighlightingIntervention
 import os
 import json
 import re
@@ -32,6 +33,9 @@ INTERVENTIONS = [
     HighlightingIntervention(
         trigger_event="onText",
         highlight_func=simple_highlight_logic
+    ),
+    ContextualToxicityHighlightingIntervention(
+        trigger_event="onText"
     ),
     PopupIntervention(
         trigger_event="onClick",
