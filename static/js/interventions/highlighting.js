@@ -18,6 +18,15 @@ const VARIANTS = {
         label:      'Trigger Word',
         body:       'Please consider avoiding this word'
     },
+    toxicity: {
+        cssClass:   'toxicity-word',
+        hoverClass: 'toxicity-word-hover',
+        label:      'Increase Toxicity/Tension',
+        // Fallback only — in practice each highlight carries its own
+        // `reason` string returned by the LLM (see showTooltip), which
+        // always takes priority over this generic body text.
+        body:       'This may increase tension in the conversation'
+    },
 };
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -49,8 +58,8 @@ export async function getHighlights(text) {
             .filter(i => i.type === "highlighting" && i.enabled)
             .forEach(i => {
                 const variant = i.variant || "default";
-                (i.highlight_indices || []).forEach(([s, e]) => {
-                    allRanges.push({ start: s, end: e, variant });
+                (i.highlight_indices || []).forEach(([s, e, reason]) => {
+                    allRanges.push({ start: s, end: e, variant, reason });
                 });
             });
         return allRanges;
@@ -69,17 +78,26 @@ function escapeHTML(str) {
         .replace(/\n/g, '<br>');
 }
 
-function mergeRanges(ranges) {
-    if (!ranges.length) return [];
-    ranges.sort((a, b) => a[0] - b[0]);
-    const merged = [ranges[0].slice()];
-    for (let i = 1; i < ranges.length; i++) {
-        const [lastStart, lastEnd] = merged[merged.length - 1];
-        const [currStart, currEnd] = ranges[i];
-        if (currStart <= lastEnd + 1) {
-            merged[merged.length - 1][1] = Math.max(lastEnd, currEnd);
+// Merges overlapping/adjacent ranges WITHIN one variant, but only when
+// they carry the same reason. Two highlights with different reasons
+// (e.g. two separately-flagged phrases from the LLM) are kept as
+// distinct spans even if adjacent, so hovering each one always shows
+// its own correct tooltip instead of silently losing one justification.
+// Ranges with no reason (e.g. the plain keyword-based variant) are
+// treated as sharing an implicit empty reason, so they merge exactly as
+// before.
+function mergeRangeItems(items) {
+    if (!items.length) return [];
+    const sorted = items.slice().sort((a, b) => a.start - b.start);
+    const merged = [{ ...sorted[0] }];
+    for (let i = 1; i < sorted.length; i++) {
+        const last = merged[merged.length - 1];
+        const curr = sorted[i];
+        const sameReason = (last.reason || '') === (curr.reason || '');
+        if (sameReason && curr.start <= last.end + 1) {
+            last.end = Math.max(last.end, curr.end);
         } else {
-            merged.push(ranges[i].slice());
+            merged.push({ ...curr });
         }
     }
     return merged;
@@ -117,6 +135,14 @@ function ensureStyles() {
         }
         .highlights-container .trigger-word.hovered {
             background-color: rgba(229, 57, 53, 0.18);
+        }
+        .highlights-container .toxicity-word {
+            color: transparent;
+            border-bottom: 2px solid #fb8c00;
+            border-radius: 0;
+        }
+        .highlights-container .toxicity-word.hovered {
+            background-color: rgba(251, 140, 0, 0.18);
         }
         .hw-tooltip {
             position: fixed;
@@ -165,11 +191,13 @@ function getTooltip() {
     return tooltip;
 }
 
-function showTooltip(x, y, variant) {
+function showTooltip(x, y, range) {
     const tt = getTooltip();
-    const cfg = VARIANTS[variant] || VARIANTS.default;
+    const cfg = VARIANTS[range.variant] || VARIANTS.default;
     tt.querySelector('.tt-label').textContent = cfg.label;
-    tt.querySelector('.tt-body').textContent  = cfg.body;
+    // Prefer this specific highlight's own reason (e.g. the LLM's
+    // per-phrase justification) over the variant's generic static body.
+    tt.querySelector('.tt-body').textContent  = range.reason || cfg.body;
     tt.style.display = 'block';
     tt.style.left = x + 'px';
     tt.style.top  = (y + 4) + 'px';
@@ -319,8 +347,9 @@ function onTextareaMouseMove(e) {
             setHoveredSpan(range);
         }
 
-        // Position tooltip below mouse cursor, passing variant for dynamic content
-        showTooltip(e.clientX, e.clientY + 16, range.variant);
+        // Position tooltip below mouse cursor, passing the whole range so
+        // showTooltip can use this specific highlight's own reason (if any)
+        showTooltip(e.clientX, e.clientY + 16, range);
     } else {
         if (hoveredRange) {
             clearHoveredSpan();
@@ -368,7 +397,7 @@ function buildLayerHTML(text, variantRanges) {
     const cfg = VARIANTS[variantRanges.variant] || VARIANTS.default;
     let html = '';
     let pos = 0;
-    for (const [start, end] of variantRanges.pairs) {
+    for (const { start, end } of variantRanges.items) {
         if (pos < start) html += escapeHTML(text.slice(pos, start));
         html += `<span class="${cfg.cssClass}" data-start="${start}" data-variant="${variantRanges.variant}">`
               + escapeHTML(text.slice(start, end + 1))
@@ -387,24 +416,25 @@ export function applyHighlights(textarea, ranges) {
 
     ensureStyles();
 
-    // Merge ranges within each variant separately. Variants are kept fully
-    // separate all the way through rendering (see the per-variant layers
-    // below) so that overlapping words of different colours/variants never
-    // fight over the same DOM span - each variant owns its own layer no
-    // matter how many other variants' ranges overlap the same characters.
+    // Group ranges within each variant separately, keeping each range's
+    // reason attached. Variants are kept fully separate all the way
+    // through rendering (see the per-variant layers below) so that
+    // overlapping words of different colours/variants never fight over
+    // the same DOM span - each variant owns its own layer no matter how
+    // many other variants' ranges overlap the same characters.
     const byVariant = {};
     ranges.forEach(r => {
         const v = r.variant || 'default';
-        (byVariant[v] = byVariant[v] || []).push([r.start, r.end]);
+        (byVariant[v] = byVariant[v] || []).push({ start: r.start, end: r.end, reason: r.reason });
     });
 
     currentRanges = [];
     const mergedByVariant = [];
-    Object.entries(byVariant).forEach(([variant, pairs]) => {
-        const merged = mergeRanges(pairs);
-        mergedByVariant.push({ variant, pairs: merged });
-        merged.forEach(([s, e]) => {
-            currentRanges.push({ start: s, end: e, variant });
+    Object.entries(byVariant).forEach(([variant, items]) => {
+        const merged = mergeRangeItems(items);
+        mergedByVariant.push({ variant, items: merged });
+        merged.forEach(item => {
+            currentRanges.push({ start: item.start, end: item.end, variant, reason: item.reason });
         });
     });
     // Sorted purely for hover/lookup convenience elsewhere - rendering
@@ -464,12 +494,12 @@ export function applyHighlights(textarea, ranges) {
     // (underline colour, hover background, tooltip) render correctly at
     // once instead of one clobbering the other. Adding a new variant in
     // the future needs no changes here - it just gets its own layer.
-    mergedByVariant.forEach(({ variant, pairs }) => {
-        if (!pairs.length) return;
+    mergedByVariant.forEach(({ variant, items }) => {
+        if (!items.length) return;
         const layer = document.createElement('div');
         layer.className = 'highlight-layer';
         layer.dataset.variant = variant;
-        layer.innerHTML = buildLayerHTML(text, { variant, pairs });
+        layer.innerHTML = buildLayerHTML(text, { variant, items });
         container.appendChild(layer);
     });
 
@@ -600,7 +630,7 @@ export function renderHighlighting(data) {
     // Convert raw [[start,end]] pairs to {start,end,variant} objects so
     // applyHighlights can pick the right CSS class and tooltip per variant.
     const variant = data.variant || 'default';
-    const ranges = data.highlight_indices.map(([s, e]) => ({ start: s, end: e, variant }));
+    const ranges = data.highlight_indices.map(([s, e, reason]) => ({ start: s, end: e, variant, reason }));
     applyHighlights(textArea, ranges);
 }
 
@@ -624,8 +654,8 @@ export function renderHighlightingBatch(dataList) {
     (dataList || []).forEach(data => {
         if (!data || !data.enabled || !data.highlight_indices?.length) return;
         const variant = data.variant || 'default';
-        data.highlight_indices.forEach(([s, e]) => {
-            allRanges.push({ start: s, end: e, variant });
+        data.highlight_indices.forEach(([s, e, reason]) => {
+            allRanges.push({ start: s, end: e, variant, reason });
         });
     });
 

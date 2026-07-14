@@ -83,8 +83,8 @@ If the draft comment is toxic, uncivil, or likely to increase tension in this co
 
 
 Rules:
-- Every "phrase" must be copied EXACTLY, character-for-character, from the draft comment — same spelling, capitalization, and punctuation. Do not paraphrase or correct it.
-- Only flag phrases from the draft comment, never from the earlier conversation shown for context.
+- Every "word" or "phrase" must be copied EXACTLY, character-for-character, from the draft comment — same spelling, capitalization, and punctuation. Do not paraphrase or correct it.
+- Only flag words and phrases from the draft comment, never from the earlier conversation shown for context.
 - DO NOT REFLAG the TRIGGER_WORDS
 - If the comment is civil and unlikely to raise tension, do not flag anything.
 
@@ -92,9 +92,16 @@ Rules:
 Example output for a draft like "yeah sure, whatever you say, genius":
 [{"phrase": "whatever you say, genius", "reason": "Sarcastic dismissal that mocks the other speaker rather than engaging with their point."}]
 
+Example output for a draft like "You are stupid and ugly":
+[{"word": "ugly", "reason": "A direct personal insult attacking the recipient's phhysical appearance."}]
+
+Example output for a draft like "You are ugly and stupid":
+[{"phrase": "You are ugly", "reason": "A direct personal insult attacking the recipient's phhysical appearance."}]
+
 
 Respond with ONLY raw JSON, no markdown fences, no extra commentary, in exactly this shape:
-[{"phrase": "...", "reason": "..."}]
+if a phrase is flagged, return [{"phrase": "...", "reason": "..."}]
+if a word is flagged, return [{"word": "...", "reason": "..."}]
 
 
 If nothing should be flagged, respond with exactly: []
@@ -204,9 +211,14 @@ def _parse_llm_json(raw):
     surface a clear intervention error (per project decision: fail loudly
     rather than silently).
 
+    The prompt allows the LLM to key a flagged item as either "phrase"
+    (multi-word spans) or "word" (single flagged words) — both are
+    normalized to "phrase" here so every downstream consumer
+    (_phrases_to_ranges, etc.) only ever has to handle one key.
+
     :param raw: raw LLM output
     :type raw: str
-    :return: list of phrase/reason dicts
+    :return: list of phrase/reason dicts (always keyed "phrase"/"reason")
     :rtype: list[dict]
     :raises ValueError: if the response isn't valid, well-shaped JSON
     """
@@ -226,11 +238,22 @@ def _parse_llm_json(raw):
 
     result = []
     for i, item in enumerate(parsed):
-        if not isinstance(item, dict) or "phrase" not in item or "reason" not in item:
+        if not isinstance(item, dict) or "reason" not in item:
             raise ValueError(
-                f"Toxicity highlighter: item {i} is missing required 'phrase'/'reason' keys: {item!r}"
+                f"Toxicity highlighter: item {i} is missing required 'reason' key: {item!r}"
             )
-        phrase = str(item["phrase"])
+
+        # Accept either "phrase" or "word" as the flagged-span key.
+        if "phrase" in item:
+            span = item["phrase"]
+        elif "word" in item:
+            span = item["word"]
+        else:
+            raise ValueError(
+                f"Toxicity highlighter: item {i} is missing required 'phrase'/'word' key: {item!r}"
+            )
+
+        phrase = str(span)
         reason = str(item["reason"])
         if phrase.strip():
             result.append({"phrase": phrase, "reason": reason})
@@ -266,9 +289,11 @@ def _call_llm_for_toxicity(convo, latest_id, draft_text, bucket=0):
 
 def _phrases_to_ranges(draft_text, flagged):
     """
-    Convert LLM-flagged phrases into [start, end] character ranges
-    (inclusive end, matching the convention used elsewhere in this
-    project — see interventionHelpers.py's highlight functions).
+    Convert LLM-flagged phrases into [start, end, reason] character ranges
+    (inclusive end, matching the [start, end] convention used elsewhere in
+    this project — see interventionHelpers.py's highlight functions — with
+    the LLM's per-phrase reason appended as a third element so the frontend
+    tooltip can show the specific justification for that highlight).
 
     Every exact (case-insensitive) occurrence of each flagged phrase is
     highlighted. Phrases not found verbatim in the draft are skipped,
@@ -278,8 +303,8 @@ def _phrases_to_ranges(draft_text, flagged):
     :type draft_text: str
     :param flagged: list of {"phrase": ..., "reason": ...} dicts
     :type flagged: list[dict]
-    :return: list of [start, end] ranges
-    :rtype: list[list[int]]
+    :return: list of [start, end, reason] ranges
+    :rtype: list[list]
     """
     if not draft_text or not flagged:
         return []
@@ -292,13 +317,14 @@ def _phrases_to_ranges(draft_text, flagged):
         if not phrase:
             continue
         phrase_lower = phrase.lower()
+        reason = item.get("reason", "")
 
         start = 0
         while True:
             pos = text_lower.find(phrase_lower, start)
             if pos == -1:
                 break
-            ranges.append([pos, pos + len(phrase) - 1])  # inclusive end
+            ranges.append([pos, pos + len(phrase) - 1, reason])  # inclusive end
             start = pos + 1
 
     return ranges
@@ -331,7 +357,8 @@ def _set_cached(convo_id, text, latest_id, ranges):
 def toxic_highlight_logic(text, convo=None, convo_id=None, latest_id=None, bucket=0):
     """
     Main entry point: given the draft text and conversation context,
-    return [start, end] character ranges to highlight.
+    return [start, end, reason] character ranges to highlight, where
+    `reason` is the LLM's own justification for that specific phrase.
 
     Calls the LLM fresh unless the (text, latest_id) pair matches the
     last call made for this convo_id, in which case the cached result is
@@ -342,8 +369,8 @@ def toxic_highlight_logic(text, convo=None, convo_id=None, latest_id=None, bucke
     :param convo_id: id used to scope the per-session cache
     :param latest_id: id of the utterance being replied to
     :param bucket: parallelization bucket, passed through to call_llama
-    :return: list of [start, end] ranges
-    :rtype: list[list[int]]
+    :return: list of [start, end, reason] ranges
+    :rtype: list[list]
     :raises ValueError: if the LLM call fails or returns unparseable output
     """
     if not text:
@@ -377,7 +404,7 @@ class ContextualToxicityHighlightingIntervention(HighlightingIntervention):
     instead of going through self.highlight_func.
     """
 
-    def __init__(self, trigger_event="onText", variant="default", bucket=0):
+    def __init__(self, trigger_event="onText", variant="toxicity", bucket=0):
         super().__init__(trigger_event=trigger_event, highlight_func=None, variant=variant)
         self.name = "contextual_toxicity_highlighting"
         self.bucket = bucket
@@ -401,12 +428,23 @@ class ContextualToxicityHighlightingIntervention(HighlightingIntervention):
         if not highlight_ranges:
             return None
 
+        # Each range is [start, end, reason]. If every range carries its own
+        # LLM-provided reason, use those (joined) for the logged top-level
+        # "reason" too — more useful for research analysis than one generic
+        # message. Falls back to the generic message if reasons are missing.
+        per_range_reasons = [r[2] for r in highlight_ranges if len(r) > 2 and r[2]]
+        if per_range_reasons:
+            unique_reasons = list(dict.fromkeys(per_range_reasons))  # preserve order, dedupe
+            reason = "; ".join(unique_reasons)
+        else:
+            reason = (f"{len(highlight_ranges)} portion(s) of the draft were flagged as potentially "
+                      f"raising the tension of the conversation")
+
         return {
             "type": "highlighting",
             "triggerEvent": self.trigger_event,
             "variant": self.variant,
-            "reason": f"{len(highlight_ranges)} portion(s) of the draft were flagged as potentially "
-                      f"raising the tension of the conversation",
+            "reason": reason,
             "enabled": True,
             "highlight_indices": highlight_ranges,
         }
