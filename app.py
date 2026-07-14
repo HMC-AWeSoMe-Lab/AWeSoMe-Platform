@@ -33,6 +33,11 @@ INTERVENTIONS = [
         trigger_event="onText",
         highlight_func=simple_highlight_logic
     ),
+    HighlightingIntervention(
+        trigger_event="onText",
+        highlight_func=salad_highlight_logic,
+        variant="salad"
+    ),
     PopupIntervention(
         trigger_event="onClick",
         text_func=default_popup_logic,
@@ -89,11 +94,11 @@ with open(settings_path, "r") as file:
     settings = json.load(file)
     placeholder_text = settings["commentBox"]["placeholderText"]
     submit_button_text = settings["commentBox"]["submitButtonText"]
-    # Feature toggles — edit these in static/settings.json
+    # Intervention toggles — edit these in static/settings.json
     reading_timer_enabled = settings["toggleable_features"]["readingTimerEnabled"]
     min_comment_length = settings["toggleable_features"]["minCommentLength"]
     reply_to_anywhere = settings["toggleable_features"].get("replyToAnywhere", True)
-    # instructionPageEnabled toggles the whole Instruction page (route)
+    # instructionEnabled toggles the whole Instruction page (route)
     instruction_enabled = settings["toggleable_features"].get("instructionPageEnabled", True)
     # trajectorySummaryBoxEnabled toggles just the trajectory summary box within the page;
     # the box is only ever shown if a summary actually exists for the conversation
@@ -185,22 +190,10 @@ def get_all_interventions():
  
     data = request.get_json() or {}
     convo = convo_cache.get(session.get('convo_id'))
-
-    # --- Deduplication state ------------------------------------------------
-    # `active_interventions` is a set of string keys for interventions that are
-    # *currently* firing.  We only write a DB row when an intervention
-    # transitions from inactive → active (i.e. the key is not already present).
-    # When it stops firing we remove its key so the next trigger re-logs it.
-    # Each key encodes the intervention's position in INTERVENTIONS plus the
-    # trigger event, making it unique even when the same class is used twice.
-    if 'active_interventions' not in session:
-        session['active_interventions'] = []
-    active_set = set(session['active_interventions'])
-    # -------------------------------------------------------------------------
-
+ 
     results = []
  
-    for idx, intervention in enumerate(INTERVENTIONS):
+    for intervention in INTERVENTIONS:
         try:
             result = intervention.update(
                 convo=convo,
@@ -211,38 +204,21 @@ def get_all_interventions():
                 button_id=data.get("buttonID"),
                 click_count=data.get("clickCount", 0)
             )
-
-            # Dedup key = which intervention + what it produced.
-            # The content hash is critical: without it, adding new trigger words
-            # (e.g. typing "stupid" after "hate" is already highlighted) would be
-            # silently skipped because the base key was already in active_set.
-            # Including the result hash means any change in highlighted words,
-            # popup text, etc. is treated as a new event and gets logged.
-            base_key = f"{idx}:{intervention.__class__.__name__}:{data.get('triggerEvent')}"
-
             if result is not None:
                 results.append(result)
 
-                content_hash = str(hash(json.dumps(result, sort_keys=True)))
-                intervention_key = f"{base_key}:{content_hash}"
-
-                if intervention_key not in active_set:
-                    # Remove stale content-hash variants of this same intervention.
-                    active_set = {k for k in active_set if not k.startswith(base_key + ":")}
-                    active_set.add(intervention_key)
-                    insert_triggered_intervention(
-                        interaction_id=data.get("latestID"),
-                        intervention_type=result.get("type", intervention.__class__.__name__),
-                        trigger_reason=result.get("reason", DEFAULT_TRIGGER_REASON),
-                        content=result.get("html") or json.dumps(result),
-                        current_timestamp=data.get("currentTimestamp"),
-                        trigger_event=result.get("triggerEvent", data.get("triggerEvent")),
-                    )
-            else:
-                # No longer active — clear all content-hash variants so the next
-                # trigger is recorded as a fresh event.
-                active_set = {k for k in active_set if not k.startswith(base_key + ":")}
-
+                # Record that this intervention fired, for research analysis.
+                # This works for any current or future intervention type: it only
+                # relies on the generic "type"/"reason" keys in the payload, with
+                # graceful fallbacks if a custom intervention doesn't set them.
+                insert_triggered_intervention(
+                    interaction_id=data.get("latestID"),
+                    intervention_type=result.get("type", intervention.__class__.__name__),
+                    trigger_reason=result.get("reason", DEFAULT_TRIGGER_REASON),
+                    content=result.get("html") or json.dumps(result),
+                    current_timestamp=data.get("currentTimestamp"),
+                    trigger_event=result.get("triggerEvent", data.get("triggerEvent")),
+                )
         except ValueError as e:
             error_message = f"Intervention Configuration Error: {str(e)}"
             print(f"❌ {error_message}")
@@ -251,11 +227,7 @@ def get_all_interventions():
             error_message = f"Unexpected intervention error: {str(e)}"
             print(f"❌ {error_message}")
             return jsonify({"error": error_message, "interventionError": True}), 500
-
-    # Persist the updated active set back into the session.
-    session['active_interventions'] = list(active_set)
-    session.modified = True
-
+ 
     return jsonify(results)
  
  

@@ -155,6 +155,37 @@ def target_phrase_highlight_logic(text: str) -> list:
     return ranges
 
 
+def salad_highlight_logic(text: str) -> list:
+    """
+    Highlight the word "salad" (whole-word match, case-insensitive) in text input.
+
+    :param text: Input text to scan for the word "salad"
+    :type text: str
+    :return: List of [start, end] character ranges (inclusive) to highlight
+    :rtype: list[list[int]]
+    """
+    if not text:
+        return []
+
+    ranges = []
+    text_lower = text.lower()
+    word = "salad"
+
+    start = 0
+    while True:
+        pos = text_lower.find(word, start)
+        if pos == -1:
+            break
+        # Whole-word check: character before and after must not be alphanumeric
+        before_ok = (pos == 0 or not text[pos - 1].isalnum())
+        after_ok  = (pos + len(word) == len(text) or not text[pos + len(word)].isalnum())
+        if before_ok and after_ok:
+            ranges.append([pos, pos + len(word) - 1])
+        start = pos + 1
+
+    return ranges
+
+
 def get_relative_feedback_position(parent_id: str, relation: str) -> dict:
     """
     Return positioning instruction to place a feedback box relative to a parent element.

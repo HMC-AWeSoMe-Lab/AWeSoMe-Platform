@@ -7,7 +7,7 @@ import { setupEventListeners, setupInterventionTriggers } from './events/eventSe
 import { toggleCommentBox } from './events/commentActions.js';
 
 // 🎯 Interventions
-import { initializeHighlighting, removeHighlights } from './interventions/highlighting.js';
+import { initializeHighlighting, removeHighlights, renderHighlightingBatch } from './interventions/highlighting.js';
 import { interventionHandlers } from './interventions/interventionHandlers.js';
 
 // 🛠 Services & State
@@ -188,16 +188,35 @@ export async function triggerInterventions(draft, interactionId, triggerEvent, b
       removeHighlights();
     }
 
+    const highlightingBatch = [];
+
     for (const data of interventions) {
       console.log("Processing intervention data:", data.triggerEvent);
       if (!data || data.triggerEvent !== triggerEvent) continue;
       
       // Log intervention text before processing the intervention
       await logInterventionText(data);
-      
+
+      // "highlighting" is special-cased: there can be multiple simultaneous
+      // HighlightingIntervention payloads in one response (e.g. a default
+      // trigger-word variant AND a "salad" variant both firing on the same
+      // text). Each call to applyHighlights() replaces the whole overlay,
+      // so dispatching them one-by-one through the generic handler below
+      // would let each later variant erase the earlier one's highlights.
+      // Instead we collect them all here and render them together, once,
+      // after the loop finishes.
+      if (data.type === "highlighting") {
+        highlightingBatch.push(data);
+        continue;
+      }
+
       const handler = interventionHandlers[data.type];
       if (handler) handler(data);
       else console.warn(`⚠️ No handler for type: ${data.type}`);
+    }
+
+    if (highlightingBatch.length > 0) {
+      renderHighlightingBatch(highlightingBatch);
     }
   } catch (error) {
     console.error("❌ Error triggering interventions:", error);

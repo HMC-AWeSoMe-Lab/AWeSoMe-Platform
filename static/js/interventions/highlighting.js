@@ -4,24 +4,37 @@ import { utils, debounce } from '../services/utils.js';
 
 let highlightFeatureEnabled = null;
 
+// ── Variant config ────────────────────────────────────────────────────────────
+// Add a new entry here whenever a new HighlightingIntervention variant is added
+// on the backend.  Each entry maps the variant name to:
+//   cssClass   – class applied to highlighted <span>s in the overlay
+//   hoverClass – class applied on mouseover
+//   label      – grey header text shown in the tooltip
+//   body       – main tooltip text
+const VARIANTS = {
+    default: {
+        cssClass:   'trigger-word',
+        hoverClass: 'trigger-word-hover',
+        label:      'Trigger Word',
+        body:       'Please consider avoiding this word'
+    },
+    salad: {
+        cssClass:   'salad-word',
+        hoverClass: 'salad-word-hover',
+        label:      'Salad Time!',
+        body:       'Eat your salad.'
+    }
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 async function checkHighlightingEnabled() {
     if (highlightFeatureEnabled !== null) return highlightFeatureEnabled;
     highlightFeatureEnabled = true;
     return highlightFeatureEnabled;
 }
 
-// Monotonically increasing counter used to discard stale, out-of-order
-// responses: if the user types quickly, multiple /interventions requests
-// can be in flight at once, and a slower older request can resolve AFTER
-// a newer one — overwriting a correct "no highlights" state with stale
-// highlight data (a "phantom" highlight that lingers after the trigger
-// word has been deleted). Each call captures its own sequence number and
-// only applies its result if it's still the most recent request issued.
-let highlightRequestSeq = 0;
-
 export async function getHighlights(text) {
     appState.setLatestAction("HIGHLIGHT_INTERVENTION", text);
-    const seq = ++highlightRequestSeq;
     try {
         const response = await fetch('/interventions', {
             method: 'POST',
@@ -34,21 +47,22 @@ export async function getHighlights(text) {
             })
         });
         const interventions = await response.json();
-
-        // A newer request has already started (or finished) since this one
-        // was issued — this response is stale, so don't act on it.
-        if (seq !== highlightRequestSeq) {
-            return null;
-        }
-
-        const highlightIntervention = interventions.find(i => i.type === "highlighting");
-        if (highlightIntervention && highlightIntervention.enabled) {
-            return highlightIntervention.highlight_indices || [];
-        }
-        return [];
+        // Collect ALL highlighting payloads (there may be more than one variant).
+        // Convert each payload's index pairs into {start, end, variant} objects
+        // so the render layer can style them independently.
+        const allRanges = [];
+        interventions
+            .filter(i => i.type === "highlighting" && i.enabled)
+            .forEach(i => {
+                const variant = i.variant || "default";
+                (i.highlight_indices || []).forEach(([s, e]) => {
+                    allRanges.push({ start: s, end: e, variant });
+                });
+            });
+        return allRanges;
     } catch (error) {
         console.error("[Highlight] Error fetching highlights:", error);
-        return seq === highlightRequestSeq ? [] : null;
+        return [];
     }
 }
 
@@ -87,6 +101,21 @@ function ensureStyles() {
             user-select: none;
             overflow: hidden;
         }
+        /* Each variant renders into its own absolutely-positioned, fully
+           transparent-background layer stacked on top of the others.
+           Because every layer independently spans the whole textarea and
+           only paints its own spans, overlapping ranges from different
+           variants never compete for the same DOM text run - each variant
+           keeps its own underline/background no matter what else overlaps it. */
+        .highlights-container .highlight-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            background: transparent;
+        }
         .highlights-container .trigger-word {
             color: transparent;
             border-bottom: 2px solid #e53935;
@@ -94,6 +123,14 @@ function ensureStyles() {
         }
         .highlights-container .trigger-word.hovered {
             background-color: rgba(229, 57, 53, 0.18);
+        }
+        .highlights-container .salad-word {
+            color: transparent;
+            border-bottom: 2px solid #43a047;
+            border-radius: 0;
+        }
+        .highlights-container .salad-word.hovered {
+            background-color: rgba(67, 160, 71, 0.18);
         }
         .hw-tooltip {
             position: fixed;
@@ -121,7 +158,8 @@ function ensureStyles() {
     document.head.appendChild(style);
 }
 
-// Current highlight ranges kept in memory so mousemove can check them
+// Current highlight ranges kept in memory so mousemove can check them.
+// Each entry: { start, end, variant } — variant drives CSS class + tooltip.
 let currentRanges = [];
 
 // Shared tooltip
@@ -130,9 +168,10 @@ function getTooltip() {
     if (!tooltip) {
         tooltip = document.createElement('div');
         tooltip.className = 'hw-tooltip';
+        // Content is set dynamically in showTooltip() based on the hovered variant
         tooltip.innerHTML = `
-            <span class="tt-label">Trigger Word</span>
-            <span class="tt-body">Please consider avoiding this word</span>
+            <span class="tt-label"></span>
+            <span class="tt-body"></span>
         `;
         tooltip.style.display = 'none';
         document.body.appendChild(tooltip);
@@ -140,8 +179,11 @@ function getTooltip() {
     return tooltip;
 }
 
-function showTooltip(x, y) {
+function showTooltip(x, y, variant) {
     const tt = getTooltip();
+    const cfg = VARIANTS[variant] || VARIANTS.default;
+    tt.querySelector('.tt-label').textContent = cfg.label;
+    tt.querySelector('.tt-body').textContent  = cfg.body;
     tt.style.display = 'block';
     tt.style.left = x + 'px';
     tt.style.top  = (y + 4) + 'px';
@@ -227,7 +269,7 @@ function getCharIndexAtMouse(textarea, mouseX, mouseY) {
 
     // Only wrap characters that are in trigger ranges to keep DOM small
     const inRange = new Set();
-    currentRanges.forEach(([s, e]) => {
+    currentRanges.forEach(({ start: s, end: e }) => {
         for (let i = s; i <= e; i++) inRange.add(i);
     });
 
@@ -265,8 +307,8 @@ function getCharIndexAtMouse(textarea, mouseX, mouseY) {
 // Find which trigger range (if any) a char index falls in
 function getRangeForChar(charIndex) {
     if (charIndex < 0) return null;
-    for (const [s, e] of currentRanges) {
-        if (charIndex >= s && charIndex <= e) return [s, e];
+    for (const r of currentRanges) {
+        if (charIndex >= r.start && charIndex <= r.end) return r;
     }
     return null;
 }
@@ -280,18 +322,19 @@ function onTextareaMouseMove(e) {
     const range = getRangeForChar(charIndex);
 
     if (range) {
-        const rangeKey = range[0] + '-' + range[1];
-        const hoveredKey = hoveredRange ? hoveredRange[0] + '-' + hoveredRange[1] : null;
+        const rangeKey = range.start + '-' + range.end + '-' + range.variant;
+        const hoveredKey = hoveredRange
+            ? hoveredRange.start + '-' + hoveredRange.end + '-' + hoveredRange.variant
+            : null;
 
         if (rangeKey !== hoveredKey) {
-            // Clear previous hover
             clearHoveredSpan();
             hoveredRange = range;
             setHoveredSpan(range);
         }
 
-        // Position tooltip below mouse cursor
-        showTooltip(e.clientX, e.clientY + 16);
+        // Position tooltip below mouse cursor, passing variant for dynamic content
+        showTooltip(e.clientX, e.clientY + 16, range.variant);
     } else {
         if (hoveredRange) {
             clearHoveredSpan();
@@ -312,16 +355,11 @@ function setHoveredSpan(range) {
     if (!textarea) return;
     const container = textarea.parentNode?.querySelector('.highlights-container');
     if (!container) return;
-    container.querySelectorAll('.trigger-word').forEach(span => {
-        // Match spans by their text offset — find the span whose position in the
-        // container's text node matches our range. We identify them by order.
-        span.classList.add('hovered');
-    });
-    // More precisely: only add .hovered to spans that correspond to this range
-    // We mark them by data-range attribute during build
-    container.querySelectorAll(`.trigger-word[data-start="${range[0]}"]`).forEach(span => {
-        span.classList.add('hovered');
-    });
+    const cfg = VARIANTS[range.variant] || VARIANTS.default;
+    // Only hover the exact span that matches both start position and variant
+    container
+        .querySelectorAll(`.${cfg.cssClass}[data-start="${range.start}"][data-variant="${range.variant}"]`)
+        .forEach(span => span.classList.add('hovered'));
 }
 
 function clearHoveredSpan() {
@@ -329,9 +367,30 @@ function clearHoveredSpan() {
     if (!textarea) return;
     const container = textarea.parentNode?.querySelector('.highlights-container');
     if (!container) return;
-    container.querySelectorAll('.trigger-word.hovered').forEach(span => {
-        span.classList.remove('hovered');
-    });
+    // Clear hovered state from every variant class
+    container.querySelectorAll('.hovered').forEach(span => span.classList.remove('hovered'));
+}
+
+// Builds the inner HTML for a single variant's layer: the full text, with
+// only that variant's (already-merged, non-overlapping) ranges wrapped in
+// highlight spans and everything else passed through untouched. Because
+// each variant gets its own layer, this function never needs to know
+// about any other variant's ranges, so overlapping highlights from other
+// variants simply render in a different stacked layer instead of
+// competing for the same span.
+function buildLayerHTML(text, variantRanges) {
+    const cfg = VARIANTS[variantRanges.variant] || VARIANTS.default;
+    let html = '';
+    let pos = 0;
+    for (const [start, end] of variantRanges.pairs) {
+        if (pos < start) html += escapeHTML(text.slice(pos, start));
+        html += `<span class="${cfg.cssClass}" data-start="${start}" data-variant="${variantRanges.variant}">`
+              + escapeHTML(text.slice(start, end + 1))
+              + `</span>`;
+        pos = end + 1;
+    }
+    if (pos < text.length) html += escapeHTML(text.slice(pos));
+    return html;
 }
 
 export function applyHighlights(textarea, ranges) {
@@ -341,7 +400,30 @@ export function applyHighlights(textarea, ranges) {
     }
 
     ensureStyles();
-    currentRanges = mergeRanges(ranges);
+
+    // Merge ranges within each variant separately. Variants are kept fully
+    // separate all the way through rendering (see the per-variant layers
+    // below) so that overlapping words of different colours/variants never
+    // fight over the same DOM span - each variant owns its own layer no
+    // matter how many other variants' ranges overlap the same characters.
+    const byVariant = {};
+    ranges.forEach(r => {
+        const v = r.variant || 'default';
+        (byVariant[v] = byVariant[v] || []).push([r.start, r.end]);
+    });
+
+    currentRanges = [];
+    const mergedByVariant = [];
+    Object.entries(byVariant).forEach(([variant, pairs]) => {
+        const merged = mergeRanges(pairs);
+        mergedByVariant.push({ variant, pairs: merged });
+        merged.forEach(([s, e]) => {
+            currentRanges.push({ start: s, end: e, variant });
+        });
+    });
+    // Sorted purely for hover/lookup convenience elsewhere - rendering
+    // below no longer depends on a single global left-to-right ordering.
+    currentRanges.sort((a, b) => a.start - b.start);
 
     const text = textarea.value;
 
@@ -388,20 +470,25 @@ export function applyHighlights(textarea, ranges) {
         zIndex:     '2'
     });
 
-    // Build HTML, tagging each trigger-word span with its start index
-    let html = '';
-    let pos = 0;
-    for (const [start, end] of currentRanges) {
-        if (pos < start) html += escapeHTML(text.slice(pos, start));
-        html += `<span class="trigger-word" data-start="${start}">${escapeHTML(text.slice(start, end + 1))}</span>`;
-        pos = end + 1;
-    }
-    if (pos < text.length) html += escapeHTML(text.slice(pos));
+    // Render one independent, fully-stacked layer per variant. Each layer
+    // contains the *entire* text, with only its own variant's spans
+    // highlighted - identical characters can therefore be wrapped in a
+    // <span> in more than one layer simultaneously (e.g. a trigger word
+    // that also happens to be a salad word), and both variants' styling
+    // (underline colour, hover background, tooltip) render correctly at
+    // once instead of one clobbering the other. Adding a new variant in
+    // the future needs no changes here - it just gets its own layer.
+    mergedByVariant.forEach(({ variant, pairs }) => {
+        if (!pairs.length) return;
+        const layer = document.createElement('div');
+        layer.className = 'highlight-layer';
+        layer.dataset.variant = variant;
+        layer.innerHTML = buildLayerHTML(text, { variant, pairs });
+        container.appendChild(layer);
+    });
 
-    container.innerHTML = html;
     parent.insertBefore(container, textarea);
 
-    // Attach mouse tracking to the textarea itself (it's on top)
     textarea.removeEventListener('mousemove',  onTextareaMouseMove);
     textarea.removeEventListener('mouseleave', onTextareaMouseLeave);
     textarea.addEventListener('mousemove',  onTextareaMouseMove);
@@ -425,8 +512,7 @@ export const updateHighlights = debounce(async () => {
     }
 
     try {
-        const ranges = await getHighlights(text);
-        if (ranges === null) return; // stale response — a newer request is already in flight/applied
+        const ranges = await getHighlights(text);  // [{start,end,variant}, ...]
         if (ranges.length > 0) {
             applyHighlights(textArea, ranges);
         } else {
@@ -511,10 +597,8 @@ export async function triggerHighlighting() {
     if (!text?.trim()) return;
 
     try {
-        const ranges = await getHighlights(text);
-        if (ranges === null) return; // stale response
+        const ranges = await getHighlights(text);  // [{start,end,variant}, ...]
         if (ranges.length > 0) applyHighlights(textArea, ranges);
-        else removeHighlights();
     } catch (error) {
         console.error("[Highlight] Error in manual trigger:", error);
     }
@@ -527,5 +611,42 @@ export function renderHighlighting(data) {
     }
     const textArea = domManager.get('textArea');
     if (!textArea) return;
-    applyHighlights(textArea, data.highlight_indices);
+    // Convert raw [[start,end]] pairs to {start,end,variant} objects so
+    // applyHighlights can pick the right CSS class and tooltip per variant.
+    const variant = data.variant || 'default';
+    const ranges = data.highlight_indices.map(([s, e]) => ({ start: s, end: e, variant }));
+    applyHighlights(textArea, ranges);
+}
+
+// Renders MULTIPLE "highlighting" intervention payloads in a single pass.
+//
+// Why this exists: applyHighlights() replaces the entire .highlights-container
+// every time it runs, so calling renderHighlighting(data) once per payload
+// (once per variant) means each call wipes out the previous variant's spans -
+// only the last-processed variant would ever end up visible, even though the
+// rendering layer itself supports overlapping/independent variants just fine.
+// The fix is to combine every fired highlighting payload's ranges up front
+// and hand them to applyHighlights() together, exactly once, regardless of
+// how many separate HighlightingIntervention instances fired this round.
+// Any number of future variants work automatically - this function doesn't
+// need to know about specific variant names, just the generic payload shape.
+export function renderHighlightingBatch(dataList) {
+    const textArea = domManager.get('textArea');
+    if (!textArea) return;
+
+    const allRanges = [];
+    (dataList || []).forEach(data => {
+        if (!data || !data.enabled || !data.highlight_indices?.length) return;
+        const variant = data.variant || 'default';
+        data.highlight_indices.forEach(([s, e]) => {
+            allRanges.push({ start: s, end: e, variant });
+        });
+    });
+
+    if (allRanges.length === 0) {
+        removeHighlights();
+        return;
+    }
+
+    applyHighlights(textArea, allRanges);
 }

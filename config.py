@@ -7,7 +7,7 @@
 # lines below with:
 #
 #from backend.adapters.convokit_adapter import ConvoKitAdapter
-#active_adapter = ConvoKitAdapter("/home/hrepp/SCD-corpus")
+#active_adapter = ConvoKitAdapter("/home/mayli/SCD-corpus")
 #active_adapter.load()
 # -------------------------------------------------------
 
@@ -18,6 +18,5 @@
 
 from backend.adapters.demo_adapter import DemoAdapter
 from backend.adapters.demo_data import DEMO_CONVERSATIONS
-
 active_adapter = DemoAdapter(DEMO_CONVERSATIONS)
 active_adapter.load()

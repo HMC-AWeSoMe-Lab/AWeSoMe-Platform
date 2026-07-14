@@ -1,4 +1,3 @@
-# backend/interventions/highlighting.py
 from backend.interventions.base import BaseIntervention
 from backend.interventions.interventionHelpers import default_highlight_logic, infer_trigger_reason
 import json
@@ -11,7 +10,7 @@ class HighlightingIntervention(BaseIntervention):
     or interesting portions based on configurable logic.
     """
 
-    def __init__(self, trigger_event="onText", highlight_func=None):
+    def __init__(self, trigger_event="onText", highlight_func=None, variant="default"):
         """
         Initialize the highlighting intervention.
 
@@ -26,6 +25,10 @@ class HighlightingIntervention(BaseIntervention):
         self.name = "highlighting"
         self.trigger_event = trigger_event
         self.highlight_func = highlight_func or default_highlight_logic
+        # variant is sent to the frontend so each HighlightingIntervention
+        # can be styled and labelled independently (e.g. "default" = red,
+        # "salad" = green).  See VARIANTS in highlighting.js for the mapping.
+        self.variant = variant
 
 
 
@@ -69,6 +72,7 @@ class HighlightingIntervention(BaseIntervention):
         return {
             "type": "highlighting",
             "triggerEvent": self.trigger_event,
+            "variant": self.variant,
             "reason": reason,
             "enabled": True,
             "highlight_indices": highlight_ranges

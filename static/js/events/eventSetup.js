@@ -77,17 +77,18 @@ export function setupInterventionTriggers() {
   }
 
     // 🔘 General onClick intervention buttons
-  const clickableButtons = document.querySelectorAll("button:not(#submit-comment)");
-  clickableButtons.forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      // Use existing interaction ID, don't increment it
-      const draft = document.getElementById('content')?.value || "";
-      const buttonID = btn.id;
-
-      triggerInterventions(draft, appState.latestID, "onClick", buttonID);
+    // Exclude popup buttons — they're wired inside showBlockingPopup() in
+    // commentActions.js and must not be intercepted here.
+    const excludedIds = new Set(["popup-post-anyway-button", "popup-edit-button", "popup-close-button"]);
+    const clickableButtons = document.querySelectorAll("button:not(#submit-comment)");
+    clickableButtons.forEach((btn) => {
+      if (excludedIds.has(btn.id)) return;
+      btn.addEventListener("click", async () => {
+        const draft = document.getElementById('content')?.value || "";
+        const buttonID = btn.id;
+        triggerInterventions(draft, appState.latestID, "onClick", buttonID);
+      });
     });
-  });
-
 }
 
 // adds general mouse enter/leave tracking for all elements with data-event-id
@@ -142,8 +143,11 @@ document.addEventListener("click", async (e) => {
     }));
     await pushToPayloadQueue();
     
-    // Trigger interventions for dynamic buttons (like feedback buttons)
-    if (buttonID.startsWith("feedback_button")) {
+    // Trigger interventions for dynamic buttons (like feedback buttons).
+    // Exclude submit-comment — handleCommentSubmit owns that flow end-to-end.
+    // Exclude popup buttons — showBlockingPopup() owns those.
+    const popupButtonIds = new Set(["submit-comment", "popup-post-anyway-button", "popup-edit-button", "popup-close-button"]);
+    if (buttonID.startsWith("feedback_button") && !popupButtonIds.has(buttonID)) {
       const draft = document.getElementById('content')?.value || "";
       await triggerInterventions(draft, appState.latestID, "onClick", buttonID);
     }
