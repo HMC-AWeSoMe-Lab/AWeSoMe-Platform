@@ -18,12 +18,6 @@ const VARIANTS = {
         label:      'Trigger Word',
         body:       'Please consider avoiding this word'
     },
-    salad: {
-        cssClass:   'salad-word',
-        hoverClass: 'salad-word-hover',
-        label:      'Salad Time!',
-        body:       'Eat your salad.'
-    }
 };
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -123,14 +117,6 @@ function ensureStyles() {
         }
         .highlights-container .trigger-word.hovered {
             background-color: rgba(229, 57, 53, 0.18);
-        }
-        .highlights-container .salad-word {
-            color: transparent;
-            border-bottom: 2px solid #43a047;
-            border-radius: 0;
-        }
-        .highlights-container .salad-word.hovered {
-            background-color: rgba(67, 160, 71, 0.18);
         }
         .hw-tooltip {
             position: fixed;

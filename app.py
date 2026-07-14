@@ -33,11 +33,6 @@ INTERVENTIONS = [
         trigger_event="onText",
         highlight_func=simple_highlight_logic
     ),
-    HighlightingIntervention(
-        trigger_event="onText",
-        highlight_func=salad_highlight_logic,
-        variant="salad"
-    ),
     PopupIntervention(
         trigger_event="onClick",
         text_func=default_popup_logic,
