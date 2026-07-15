@@ -87,16 +87,17 @@ Rules:
 - Only flag words and phrases from the draft comment, never from the earlier conversation shown for context.
 - DO NOT REFLAG the TRIGGER_WORDS
 - If the comment is civil and unlikely to raise tension, do not flag anything.
+Look out for people who are trying to cover up their words or phrases using symbols. For example “ F*ck you!” should still trigger the highlight. Additionally, look out for misspelled words that are toxic. 
+Look for BOTH words and phrases. 
+
+
+Example output for a draft like "You are stupid and ugly":
+[{"word": "ugly", "reason": "A direct personal insult attacking the recipient's physical appearance."}]
+This is because “stupid” is already a highlighted trigger word and should not be highlighted again. 
 
 
 Example output for a draft like "yeah sure, whatever you say, genius":
 [{"phrase": "whatever you say, genius", "reason": "Sarcastic dismissal that mocks the other speaker rather than engaging with their point."}]
-
-Example output for a draft like "You are stupid and ugly":
-[{"word": "ugly", "reason": "A direct personal insult attacking the recipient's phhysical appearance."}]
-
-Example output for a draft like "You are ugly and stupid":
-[{"phrase": "You are ugly", "reason": "A direct personal insult attacking the recipient's phhysical appearance."}]
 
 
 Respond with ONLY raw JSON, no markdown fences, no extra commentary, in exactly this shape:
@@ -331,23 +332,104 @@ def _phrases_to_ranges(draft_text, flagged):
 
 
 # ---------------------------------------------------------------------------
-# Per-session caching
+# Per-session state: change detection + sticky per-phrase reasons
 # ---------------------------------------------------------------------------
-# Keyed by convo_id (the id of the active conversation / session), so one
-# user's in-progress typing never returns another user's cached result.
-# Value: {"text": last text checked, "latest_id": ..., "ranges": [...]}
-_cache = {}
+# Two separate problems, both keyed by convo_id (the id of the active
+# conversation / session), so one user's in-progress typing never reads or
+# writes another user's state:
+#
+# 1. AVOID RE-CALLING THE LLM ON NON-ALPHABETIC EDITS
+#    Typing a space, punctuation, or an emoji shouldn't cause the LLM to
+#    re-judge the whole draft (it's non-deterministic, so the same
+#    substance can come back with a different reason or slightly
+#    different span each time). We only re-call the LLM when the
+#    *alphabetic* content of the draft has actually changed since the
+#    last call for this convo_id.
+#
+# 2. KEEP A FLAGGED PHRASE'S REASON STABLE ONCE ASSIGNED
+#    Once a phrase has been flagged with a given reason, that reason is
+#    remembered for the rest of the session (per convo_id) and reused
+#    verbatim as long as the same phrase still appears verbatim in the
+#    draft — even if the LLM is re-called (because other alphabetic
+#    content changed) and would have worded the reason differently this
+#    time. The reason is only replaced if the user actually edits the
+#    alphabetic characters *of that phrase itself*, which removes it from
+#    the draft and lets a fresh LLM call assign a new reason if it's
+#    re-flagged.
+_last_alpha_by_convo = {}   # convo_id -> last alphabetic-only text seen
+_reason_ledger_by_convo = {}  # convo_id -> {lowercased phrase: reason}
 
 
-def _get_cached(convo_id, text, latest_id):
-    entry = _cache.get(convo_id)
-    if entry and entry["text"] == text and entry["latest_id"] == latest_id:
-        return entry["ranges"]
-    return None
+_ALPHA_ONLY_RE = re.compile(r"[^a-zA-Z]+")
 
 
-def _set_cached(convo_id, text, latest_id, ranges):
-    _cache[convo_id] = {"text": text, "latest_id": latest_id, "ranges": ranges}
+def _alphabetic_signature(text):
+    """
+    Reduce text to just its lowercased alphabetic characters, so that
+    edits which only add/remove spaces, punctuation, digits, or emoji
+    are indistinguishable from a no-op for change-detection purposes.
+
+    :param text: any text
+    :type text: str
+    :return: lowercased alphabetic-only signature
+    :rtype: str
+    """
+    return _ALPHA_ONLY_RE.sub("", text or "").lower()
+
+
+def _get_reason_ledger(convo_id):
+    return _reason_ledger_by_convo.setdefault(convo_id, {})
+
+
+def _apply_sticky_reasons(convo_id, flagged):
+    """
+    Merge freshly-returned {"phrase", "reason"} items with this session's
+    remembered reasons: if a phrase was already flagged before, keep its
+    original reason instead of the LLM's newest wording, and record any
+    genuinely new phrase's reason for future reuse.
+
+    :param convo_id: id used to scope the per-session ledger
+    :param flagged: list of {"phrase": ..., "reason": ...} dicts fresh
+        from this LLM call
+    :return: list of {"phrase": ..., "reason": ...} dicts with reasons
+        stabilized against the ledger
+    :rtype: list[dict]
+    """
+    ledger = _get_reason_ledger(convo_id)
+    result = []
+    for item in flagged:
+        phrase = item["phrase"]
+        key = phrase.lower()
+        if key in ledger:
+            reason = ledger[key]
+        else:
+            reason = item["reason"]
+            ledger[key] = reason
+        result.append({"phrase": phrase, "reason": reason})
+    return result
+
+
+def _forget_edited_phrases(convo_id, current_text):
+    """
+    Drop any ledger entries whose phrase no longer appears verbatim
+    (case-insensitively) in the current draft. This is what makes a
+    reason "unstick": once the user edits the alphabetic characters of a
+    previously-flagged phrase enough that it's no longer a substring of
+    the draft, its remembered reason is forgotten, so if the user later
+    retypes that same phrase it's treated as newly flagged and a fresh
+    reason is assigned. Phrases that still appear untouched elsewhere in
+    the draft keep their remembered reason.
+
+    :param convo_id: id used to scope the per-session ledger
+    :param current_text: the draft text as it currently stands
+    """
+    ledger = _get_reason_ledger(convo_id)
+    if not ledger:
+        return
+    current_lower = (current_text or "").lower()
+    for key in list(ledger.keys()):
+        if key not in current_lower:
+            del ledger[key]
 
 
 # ---------------------------------------------------------------------------
@@ -358,15 +440,19 @@ def toxic_highlight_logic(text, convo=None, convo_id=None, latest_id=None, bucke
     """
     Main entry point: given the draft text and conversation context,
     return [start, end, reason] character ranges to highlight, where
-    `reason` is the LLM's own justification for that specific phrase.
+    `reason` is stable per flagged phrase for the lifetime of this
+    convo_id's session (see module docstring above for the two
+    stability guarantees this provides).
 
-    Calls the LLM fresh unless the (text, latest_id) pair matches the
-    last call made for this convo_id, in which case the cached result is
-    reused.
+    The LLM is only re-called when the alphabetic content of the draft
+    has changed since the last call for this convo_id; purely
+    punctuation/whitespace/emoji edits reuse the previous ranges as-is
+    (recomputed against the new text so positions stay correct even
+    though nothing was re-judged).
 
     :param text: the user's draft comment text
     :param convo: Conversation object (or None)
-    :param convo_id: id used to scope the per-session cache
+    :param convo_id: id used to scope per-session state
     :param latest_id: id of the utterance being replied to
     :param bucket: parallelization bucket, passed through to call_llama
     :return: list of [start, end, reason] ranges
@@ -374,17 +460,53 @@ def toxic_highlight_logic(text, convo=None, convo_id=None, latest_id=None, bucke
     :raises ValueError: if the LLM call fails or returns unparseable output
     """
     if not text:
+        _last_alpha_by_convo.pop(convo_id, None)
+        _reason_ledger_by_convo.pop(convo_id, None)
         return []
 
-    cached = _get_cached(convo_id, text, latest_id)
-    if cached is not None:
-        return cached
+    # A phrase that's no longer present at all (edited away) shouldn't
+    # keep polluting the ledger forever, regardless of whether we call
+    # the LLM this round or not.
+    _forget_edited_phrases(convo_id, text)
+
+    alpha_sig = _alphabetic_signature(text)
+    alpha_unchanged = _last_alpha_by_convo.get(convo_id) == alpha_sig
+
+    if alpha_unchanged:
+        # Nothing alphabetic changed — don't re-call the LLM. Just
+        # re-derive ranges for the phrases we already know about against
+        # the (possibly shifted, due to punctuation/space edits)
+        # current text, using their stable, ledgered reasons.
+        ledger = _get_reason_ledger(convo_id)
+        flagged = [{"phrase": phrase, "reason": reason}
+                   for phrase, reason in _ledger_phrases_with_original_casing(ledger, text)]
+        return _phrases_to_ranges(text, flagged)
 
     flagged = _call_llm_for_toxicity(convo, latest_id, text, bucket)
+    flagged = _apply_sticky_reasons(convo_id, flagged)
     ranges = _phrases_to_ranges(text, flagged)
 
-    _set_cached(convo_id, text, latest_id, ranges)
+    _last_alpha_by_convo[convo_id] = alpha_sig
     return ranges
+
+
+def _ledger_phrases_with_original_casing(ledger, current_text):
+    """
+    The ledger keys are lowercased (for case-insensitive matching), but
+    _phrases_to_ranges needs the phrase in the casing it actually
+    appears in the current text so highlighted ranges line up correctly.
+    Finds each ledgered phrase's real-casing substring in current_text.
+
+    :param ledger: {lowercased phrase: reason} dict
+    :param current_text: the draft text as it currently stands
+    :return: generator of (phrase_in_original_casing, reason) tuples
+    """
+    text_lower = current_text.lower()
+    for key, reason in ledger.items():
+        pos = text_lower.find(key)
+        if pos == -1:
+            continue  # shouldn't happen since _forget_edited_phrases just ran, but be safe
+        yield current_text[pos:pos + len(key)], reason
 
 
 # ---------------------------------------------------------------------------
