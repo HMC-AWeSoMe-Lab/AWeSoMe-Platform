@@ -2,11 +2,8 @@
 
 This platform was designed for researchers interested in studying conversational interventions. It has an abstract interface which decreases the coding burden for researchers (more information in [Adapter and Interface] (#adapter-and-interface)). Our website also supports three popular general interventions, a popup box, highlighting, and feedback box which can be easily implemented to fit most research needs. Any additional interventions can be added by the researcher (more information in [Interventions] (#interventions). All actions taken by participants during the study are recorded and stored through our data collection system which can be later accessed by researchers (more information in [Data Collection] (#data-collection)). 
 
-## Our vision
-This platform was designed using Object Oriented Programming (OOP) for ease of use and extensibility. Here's how our intervention abstract class works: All interventions inherit from `BaseIntervention`, which defines a common interface with two key methods: `update()` (which processes trigger events and parameters) and `get_payload()` (which generates the specific intervention content). This design allows researchers to create new intervention types by simply inheriting from the base class and implementing their unique `get_payload()` logic, while the framework automatically handles trigger detection, parameter validation, and error management. The OOP approach means adding a new intervention type requires no changes to the core system - just create a new class, define its behavior, and add it to the `INTERVENTIONS` list.
-
-   ![diagram](static/images/interventionViz.svg)
-
+## Our Mission
+Designing a website tool from scratch requires valuable time which could be spent conducting research. To lower the technical barrier, our adapter interface allows for researchers to add their own conversations and interventions to our platform. This has all the required features already completed such as general interventions which can be edited, a user interface where participants can interact with conversations, and data collection to store actions from the study locally. 
 
 ## Quick Start
 
