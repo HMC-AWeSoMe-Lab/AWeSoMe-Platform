@@ -2,7 +2,7 @@
   "toggleable_features": {
     "readingTimerEnabled": false,
     "minCommentLength": 0,
-    "replyToAnywhere": false,
+    "replyToAnywhere": true,
     "instructionPageEnabled": false,
     "trajectorySummaryBoxEnabled": false,
     "welcomePageEnabled": false,

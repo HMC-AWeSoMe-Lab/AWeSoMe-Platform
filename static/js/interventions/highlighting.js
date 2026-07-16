@@ -78,14 +78,25 @@ function escapeHTML(str) {
         .replace(/\n/g, '<br>');
 }
 
-// Merges overlapping/adjacent ranges WITHIN one variant, but only when
-// they carry the same reason. Two highlights with different reasons
-// (e.g. two separately-flagged phrases from the LLM) are kept as
-// distinct spans even if adjacent, so hovering each one always shows
-// its own correct tooltip instead of silently losing one justification.
-// Ranges with no reason (e.g. the plain keyword-based variant) are
-// treated as sharing an implicit empty reason, so they merge exactly as
-// before.
+// Merges overlapping/adjacent ranges WITHIN one variant.
+//
+// IMPORTANT: this merges on overlap alone, regardless of reason. Two
+// same-variant ranges that overlap MUST be merged into one span — the
+// renderer (buildLayerHTML) walks ranges with a single forward cursor and
+// assumes they're non-overlapping and strictly increasing; handing it
+// overlapping ranges causes it to re-emit already-rendered characters and
+// makes the cursor fall behind, which visually detaches the highlight
+// from its word and lets it "drift" over the wrong text (this is exactly
+// what produced the shifted/duplicated highlights we saw: the toxicity
+// ledger can accumulate more than one flagged phrase for the same
+// stretch of text across separate LLM calls, e.g. a broad phrase-level
+// flag from one call and a narrower word-level flag from a later call,
+// and those two ranges can overlap).
+//
+// When merging ranges that carry different reasons, every distinct
+// reason is preserved (joined with "; ") so the tooltip for the merged
+// span still surfaces all of the justifications that apply to it,
+// instead of silently keeping only one and dropping the rest.
 function mergeRangeItems(items) {
     if (!items.length) return [];
     const sorted = items.slice().sort((a, b) => a.start - b.start);
@@ -93,9 +104,13 @@ function mergeRangeItems(items) {
     for (let i = 1; i < sorted.length; i++) {
         const last = merged[merged.length - 1];
         const curr = sorted[i];
-        const sameReason = (last.reason || '') === (curr.reason || '');
-        if (sameReason && curr.start <= last.end + 1) {
+        if (curr.start <= last.end + 1) {
             last.end = Math.max(last.end, curr.end);
+            const reasons = new Set(
+                (last.reason || '').split('; ').filter(Boolean)
+            );
+            (curr.reason || '').split('; ').filter(Boolean).forEach(r => reasons.add(r));
+            last.reason = Array.from(reasons).join('; ');
         } else {
             merged.push({ ...curr });
         }

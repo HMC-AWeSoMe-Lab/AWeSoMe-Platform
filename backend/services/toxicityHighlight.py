@@ -58,6 +58,7 @@ import re
 import time
 
 from backend.interventions.highlighting import HighlightingIntervention
+from backend.interventions.popup import PopupIntervention
 from backend.interventions.interventionHelpers import TRIGGER_WORDS
 from backend.services.callLlamaSCD import call_llama
 
@@ -294,6 +295,124 @@ def _call_llm_for_toxicity(convo, latest_id, draft_text, bucket=0):
 # Phrase -> character range matching
 # ---------------------------------------------------------------------------
 
+def _is_boundary_ok(text, pos, phrase_len):
+    """
+    True if the occurrence of a phrase at [pos, pos+phrase_len) sits on a
+    word boundary — i.e. it isn't just a substring stuck in the middle of
+    a longer, unrelated word (e.g. flagging "ass" should not also light
+    up the "ass" inside "class" or "assignment").
+
+    The check only applies at an edge where BOTH the phrase's own edge
+    character and the text's neighboring character are alphanumeric. If
+    the phrase's edge character is already punctuation/symbol (as with
+    the obfuscated-profanity case the prompt asks the LLM to catch, e.g.
+    "F*ck" or "a$$"), that edge is exempt so obfuscated matches still
+    highlight correctly — only clean alphanumeric edges need an actual
+    word boundary.
+
+    :param text: the full draft text the phrase was found in
+    :param pos: start index of the match
+    :param phrase_len: length of the matched phrase
+    :return: whether this occurrence should be highlighted
+    :rtype: bool
+    """
+    end = pos + phrase_len  # exclusive
+
+    first_char = text[pos]
+    if first_char.isalnum():
+        prev_char = text[pos - 1] if pos > 0 else ""
+        if prev_char.isalnum():
+            return False
+
+    last_char = text[end - 1]
+    if last_char.isalnum():
+        next_char = text[end] if end < len(text) else ""
+        if next_char.isalnum():
+            return False
+
+    return True
+
+
+def _trigger_word_ranges(text):
+    """
+    Character ranges covered by the fixed TRIGGER_WORDS list in `text`,
+    using the same whole-word boundary matching as
+    interventionHelpers.default_highlight_logic/simple_highlight_logic —
+    i.e. exactly the spans the RED trigger-word highlighter will draw.
+
+    Used to carve trigger-word spans OUT of the toxicity (orange) ranges:
+    the prompt asks the LLM not to re-flag TRIGGER_WORDS, but LLMs don't
+    reliably follow negative instructions, so this is a real code-level
+    guard rather than relying on prompt compliance.
+
+    :param text: the draft text
+    :type text: str
+    :return: list of (start, end) inclusive ranges
+    :rtype: list[tuple[int, int]]
+    """
+    if not text:
+        return []
+    text_lower = text.lower()
+    ranges = []
+    for word in TRIGGER_WORDS:
+        start = 0
+        while True:
+            pos = text_lower.find(word, start)
+            if pos == -1:
+                break
+            if (pos == 0 or not text[pos - 1].isalnum()) and \
+               (pos + len(word) == len(text) or not text[pos + len(word)].isalnum()):
+                ranges.append((pos, pos + len(word) - 1))
+            start = pos + 1
+    return ranges
+
+
+def _subtract_trigger_words(ranges, text):
+    """
+    Remove any TRIGGER_WORDS-covered characters from a list of
+    [start, end, reason] toxicity ranges, splitting a range into the
+    remaining sub-segment(s) around the trigger word rather than dropping
+    the whole thing. This is what lets "You are stupid and ugly" keep
+    "ugly" highlighted orange while "stupid" — a TRIGGER_WORD, already
+    highlighted red by the separate keyword highlighter — is excluded
+    from the orange layer entirely, instead of the two colors stacking
+    on the same characters.
+
+    :param ranges: list of [start, end, reason] (inclusive end)
+    :param text: the draft text these ranges were computed against
+    :return: new list of [start, end, reason], with trigger-word spans
+        carved out and empty results dropped
+    :rtype: list[list]
+    """
+    if not ranges:
+        return ranges
+
+    trigger_spans = _trigger_word_ranges(text)
+    if not trigger_spans:
+        return ranges
+
+    result = []
+    for start, end, reason in ranges:
+        segments = [(start, end)]
+        for tw_start, tw_end in trigger_spans:
+            next_segments = []
+            for seg_start, seg_end in segments:
+                # No overlap — keep segment as-is.
+                if tw_end < seg_start or tw_start > seg_end:
+                    next_segments.append((seg_start, seg_end))
+                    continue
+                # Overlap — keep whatever's left on either side.
+                if seg_start < tw_start:
+                    next_segments.append((seg_start, tw_start - 1))
+                if seg_end > tw_end:
+                    next_segments.append((tw_end + 1, seg_end))
+            segments = next_segments
+        for seg_start, seg_end in segments:
+            result.append([seg_start, seg_end, reason])
+
+    return result
+
+
 def _phrases_to_ranges(draft_text, flagged):
     """
     Convert LLM-flagged phrases into [start, end, reason] character ranges
@@ -303,8 +422,19 @@ def _phrases_to_ranges(draft_text, flagged):
     tooltip can show the specific justification for that highlight).
 
     Every exact (case-insensitive) occurrence of each flagged phrase is
-    highlighted. Phrases not found verbatim in the draft are skipped,
-    since there's no reliable position to highlight for a paraphrase.
+    highlighted, as long as it lands on a word boundary (see
+    _is_boundary_ok) rather than mid-word inside an unrelated word.
+    Phrases not found verbatim in the draft are skipped, since there's no
+    reliable position to highlight for a paraphrase.
+
+    Any characters covered by the fixed TRIGGER_WORDS list (see
+    _subtract_trigger_words) are carved out of the result before it's
+    returned. The prompt tells the LLM not to re-flag TRIGGER_WORDS, but
+    that's not reliable on its own — this is the actual code-level
+    guarantee that a trigger word never ends up rendered in the orange
+    toxicity color, since the separate red keyword-highlighter already
+    owns it. A phrase that's partly a trigger word (e.g. "stupid and
+    ugly") keeps the non-trigger-word part highlighted.
 
     :param draft_text: the user's draft comment
     :type draft_text: str
@@ -331,10 +461,11 @@ def _phrases_to_ranges(draft_text, flagged):
             pos = text_lower.find(phrase_lower, start)
             if pos == -1:
                 break
-            ranges.append([pos, pos + len(phrase) - 1, reason])  # inclusive end
+            if _is_boundary_ok(draft_text, pos, len(phrase)):
+                ranges.append([pos, pos + len(phrase) - 1, reason])  # inclusive end
             start = pos + 1
 
-    return ranges
+    return _subtract_trigger_words(ranges, draft_text)
 
 
 # ---------------------------------------------------------------------------
@@ -594,6 +725,29 @@ def toxic_highlight_logic(text, convo=None, convo_id=None, latest_id=None, bucke
     return ranges
 
 
+def get_current_toxic_phrases(convo_id, text):
+    """
+    Return the phrases currently flagged as toxic for this session, without
+    triggering a fresh LLM call. Used at submit time: by then, typing has
+    already driven one or more onText calls that populated the per-convo
+    reason ledger, so we can just read it back instead of paying LLM
+    latency again right as the user clicks submit.
+
+    :param convo_id: id used to scope the per-session ledger
+    :param text: the draft text as it currently stands (the exact text
+        about to be submitted)
+    :return: list of {"phrase": ..., "reason": ...} dicts still present
+        verbatim in `text`
+    :rtype: list[dict]
+    """
+    _forget_edited_phrases(convo_id, text)
+    ledger = _get_reason_ledger(convo_id)
+    return [
+        {"phrase": phrase, "reason": reason}
+        for phrase, reason in _ledger_phrases_with_original_casing(ledger, text)
+    ]
+
+
 def _ledger_phrases_with_original_casing(ledger, current_text):
     """
     The ledger keys are lowercased (for case-insensitive matching), but
@@ -677,3 +831,70 @@ class ContextualToxicityHighlightingIntervention(HighlightingIntervention):
             "enabled": True,
             "highlight_indices": highlight_ranges,
         }
+
+
+# ---------------------------------------------------------------------------
+# Submit-time popup — blocks on AI-flagged toxicity, not just TRIGGER_WORDS
+# ---------------------------------------------------------------------------
+#
+# BUG THIS FIXES: the existing submit-comment PopupIntervention
+# (backend/interventions/popup.py, wired with text_func=submit_check_logic
+# in app.py) only ever looks at the fixed TRIGGER_WORDS list. A draft that
+# the LLM toxicity highlighter actively flagged (visibly underlined in the
+# "toxicity" variant color while typing) sails straight through submit with
+# no popup at all, because submit_check_logic has no way to know about
+# those flags. This class closes that gap: at submit time it reads back
+# whatever this session's toxicity highlighter has flagged (via the same
+# reason ledger toxic_highlight_logic already maintains — no extra LLM
+# call needed) and blocks submission if any of it is still present in the
+# draft, exactly like the TRIGGER_WORDS popup does for its own list.
+#
+# Wire this in ALONGSIDE the existing submit-comment PopupIntervention in
+# app.py (both target button_id="submit-comment", blocking=True); the
+# frontend already just looks for *any* blocking popup in the response
+# (see commentActions.js's `interventions.find(i => i.type === "popup" &&
+# i.blocking)`), so having two independent checks fire into the same
+# response list works with zero frontend changes.
+class ToxicitySubmitPopupIntervention(PopupIntervention):
+    """
+    Blocking submit-time popup driven by the AI toxicity highlighter's
+    current flags for this session, instead of the static TRIGGER_WORDS
+    list.
+    """
+
+    def __init__(self, button_id="submit-comment", blocking=True):
+        super().__init__(
+            trigger_event="onClick",
+            text_func=lambda _text: None,  # replaced per-call below
+            button_id=button_id,
+            blocking=blocking,
+        )
+        self.name = "toxicity_submit_popup"
+
+    def get_payload(self, convo=None, text=None, button_id=None, **kwargs):
+        if self.button_id != button_id:
+            return None
+
+        convo_id = getattr(convo, "id", None)
+        flagged = get_current_toxic_phrases(convo_id, text or "")
+        if not flagged:
+            return None
+
+        reasons = list(dict.fromkeys(item["reason"] for item in flagged if item.get("reason")))
+        popup_text = (
+            "Your comment includes language flagged as likely to raise the "
+            "tension of the conversation: " + "; ".join(reasons)
+            if reasons else
+            "Your comment includes language flagged as likely to raise the "
+            "tension of the conversation."
+        )
+
+        # Reuse PopupIntervention's own HTML-building logic rather than
+        # duplicating it — swap in a text_func that returns our computed
+        # message for the duration of this call.
+        original_text_func = self.text_func
+        self.text_func = lambda _text: popup_text
+        try:
+            return super().get_payload(convo=convo, text=text, button_id=button_id, **kwargs)
+        finally:
+            self.text_func = original_text_func

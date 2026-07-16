@@ -9,7 +9,7 @@ from backend.interventions.popup import PopupIntervention
 from backend.interventions.feedbackBox import feedbackBoxIntervention
 from backend.interventions.highlighting import HighlightingIntervention
 from backend.interventions.interventionHelpers import *
-from backend.services.toxicityHighlight import ContextualToxicityHighlightingIntervention
+from backend.services.toxicityHighlight import ContextualToxicityHighlightingIntervention, ToxicitySubmitPopupIntervention
 import os
 import json
 import re
@@ -45,6 +45,13 @@ INTERVENTIONS = [
     PopupIntervention(
         trigger_event="onClick",
         text_func=submit_check_logic,
+        button_id="submit-comment",
+        blocking=True
+    ),
+    # Also blocks submission when the AI toxicity highlighter flagged the
+    # draft (even if it contains none of the literal TRIGGER_WORDS above).
+    # See backend/services/toxicityHighlight.py for why this exists.
+    ToxicitySubmitPopupIntervention(
         button_id="submit-comment",
         blocking=True
     )
