@@ -367,6 +367,37 @@ def _trigger_word_ranges(text):
     return ranges
 
 
+def _trim_range(text, start, end):
+    """
+    Shrink a [start, end] (inclusive) range inward past any leading/
+    trailing whitespace, returning None if nothing but whitespace is left.
+
+    Used after carving a trigger-word span out of a toxicity range: a cut
+    like "You are stupid and ugly." minus "stupid" naively leaves
+    "You are " (trailing space) and " and ugly." (leading space) as the
+    two remaining segments. Left untrimmed, that dangling space still
+    gets wrapped in a highlight span and painted with the underline
+    background — visibly bleeding the orange toxicity highlight into
+    blank space immediately next to the red trigger-word highlight,
+    making the two look overlapped/misaligned even though their
+    character ranges no longer actually overlap.
+
+    :param text: the draft text the range was computed against
+    :param start: inclusive start index
+    :param end: inclusive end index
+    :return: (start, end) trimmed to the first/last non-whitespace
+        character, or None if the segment is empty/whitespace-only
+    :rtype: tuple[int, int] or None
+    """
+    while start <= end and text[start].isspace():
+        start += 1
+    while end >= start and text[end].isspace():
+        end -= 1
+    if start > end:
+        return None
+    return (start, end)
+
+
 def _subtract_trigger_words(ranges, text):
     """
     Remove any TRIGGER_WORDS-covered characters from a list of
@@ -378,10 +409,16 @@ def _subtract_trigger_words(ranges, text):
     from the orange layer entirely, instead of the two colors stacking
     on the same characters.
 
+    Each remaining sub-segment is trimmed of leading/trailing whitespace
+    (see _trim_range) so the cut never leaves a dangling space rendered
+    as part of the orange highlight — that dangling space is exactly
+    what previously made orange highlights look shifted and made them
+    visually bleed into/overlap the adjacent red trigger-word highlight.
+
     :param ranges: list of [start, end, reason] (inclusive end)
     :param text: the draft text these ranges were computed against
     :return: new list of [start, end, reason], with trigger-word spans
-        carved out and empty results dropped
+        carved out, edges trimmed of whitespace, and empty results dropped
     :rtype: list[list]
     """
     if not ranges:
@@ -389,7 +426,7 @@ def _subtract_trigger_words(ranges, text):
 
     trigger_spans = _trigger_word_ranges(text)
     if not trigger_spans:
-        return ranges
+        return [[s, e, r] for s, e, r in ranges]
 
     result = []
     for start, end, reason in ranges:
@@ -408,7 +445,9 @@ def _subtract_trigger_words(ranges, text):
                     next_segments.append((tw_end + 1, seg_end))
             segments = next_segments
         for seg_start, seg_end in segments:
-            result.append([seg_start, seg_end, reason])
+            trimmed = _trim_range(text, seg_start, seg_end)
+            if trimmed is not None:
+                result.append([trimmed[0], trimmed[1], reason])
 
     return result
 
@@ -587,6 +626,40 @@ def _get_reason_ledger(convo_id):
     return _reason_ledger_by_convo.setdefault(convo_id, {})
 
 
+def _find_overlapping_ledger_key(ledger, new_key, current_text):
+    """
+    Find an existing ledger key whose character range (as it currently
+    appears in current_text) overlaps the new phrase's range, so its
+    reason can be reused instead of asking the LLM to justify the same
+    stretch of text twice.
+
+    Only used as a fallback when new_key isn't already an exact ledger
+    key — this is what lets a later, differently-worded phrase for the
+    same toxic content (e.g. "smile." flagged earlier, later re-flagged
+    as part of a wider clause) still inherit the original reason.
+
+    :param ledger: {lowercased phrase: reason} dict
+    :param new_key: lowercased phrase being looked up
+    :param current_text: draft text as it currently stands
+    :return: the overlapping existing key, or None if no overlap found
+    :rtype: str or None
+    """
+    text_lower = current_text.lower()
+    new_pos = text_lower.find(new_key)
+    if new_pos == -1:
+        return None
+    new_start, new_end = new_pos, new_pos + len(new_key) - 1
+
+    for existing_key in ledger:
+        pos = text_lower.find(existing_key)
+        if pos == -1:
+            continue
+        existing_start, existing_end = pos, pos + len(existing_key) - 1
+        if not (new_end < existing_start or new_start > existing_end):
+            return existing_key
+    return None
+
+
 def _apply_sticky_reasons(convo_id, flagged, current_text):
     """
     Merge freshly-returned {"phrase", "reason"} items with this session's
@@ -627,7 +700,17 @@ def _apply_sticky_reasons(convo_id, flagged, current_text):
         if key in ledger:
             reason = ledger[key]
         else:
-            reason = item["reason"]
+            existing_key = _find_overlapping_ledger_key(ledger, key, current_text)
+            if existing_key is not None:
+                # This phrase overlaps content already flagged under a
+                # different (shorter/longer/differently-worded) key —
+                # e.g. the LLM previously flagged just "smile." and now
+                # returns the whole clause it's part of. Same underlying
+                # toxic content, so reuse its existing reason rather than
+                # treating this as something new.
+                reason = ledger[existing_key]
+            else:
+                reason = item["reason"]
             ledger[key] = reason
         result.append({"phrase": phrase, "reason": reason})
         seen_keys.add(key)
@@ -641,7 +724,59 @@ def _apply_sticky_reasons(convo_id, flagged, current_text):
             result.append({"phrase": phrase, "reason": reason})
             seen_keys.add(phrase.lower())
 
-    return result
+    return _collapse_overlapping_phrases(result, current_text)
+
+
+def _collapse_overlapping_phrases(items, current_text):
+    """
+    Collapse phrases that overlap the same stretch of text into a single
+    entry, so the same toxic content never ends up highlighted as two+
+    separate (and possibly staggered) ranges.
+
+    This does NOT change what reason is used for any given phrase — a
+    phrase's reason is still whatever was already assigned to it earlier
+    in this same call (via the ledger lookups above), by design, so the
+    same toxic content keeps producing the exact same tooltip text every
+    time it's seen. This step only decides, among phrases that cover
+    overlapping characters, which single phrase "wins" and gets rendered
+    — it never asks the LLM again and never invents a new reason.
+
+    The longer (more specific/complete) phrase is kept when two overlap,
+    since it's normally the more recent, more fully-formed judgment (e.g.
+    an early call flagging just "smile." and a later call flagging the
+    whole clause it's part of are almost always the same underlying
+    toxic content, just captured at different levels of completeness).
+
+    :param items: list of {"phrase": ..., "reason": ...} dicts, each
+        expected to appear verbatim in current_text
+    :param current_text: the draft text these phrases were found in
+    :return: list of {"phrase": ..., "reason": ...} with overlaps removed
+    :rtype: list[dict]
+    """
+    if len(items) <= 1:
+        return items
+
+    text_lower = current_text.lower()
+    positioned = []
+    for item in items:
+        phrase = item["phrase"]
+        pos = text_lower.find(phrase.lower())
+        if pos == -1:
+            continue  # shouldn't happen; be defensive rather than crash
+        positioned.append((pos, pos + len(phrase) - 1, item))
+
+    # Longest phrase first, so the more complete span claims its
+    # character range before any shorter, overlapping span is considered.
+    positioned.sort(key=lambda p: (p[1] - p[0]), reverse=True)
+
+    kept = []
+    for start, end, item in positioned:
+        overlaps_kept = any(not (end < ks or start > ke) for ks, ke, _ in kept)
+        if not overlaps_kept:
+            kept.append((start, end, item))
+
+    kept.sort(key=lambda p: p[0])
+    return [item for _, _, item in kept]
 
 
 def _forget_edited_phrases(convo_id, current_text):

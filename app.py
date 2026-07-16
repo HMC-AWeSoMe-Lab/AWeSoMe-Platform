@@ -28,10 +28,6 @@ INTERVENTIONS = [
     ),
     HighlightingIntervention(
         trigger_event="onText",
-        highlight_func=target_phrase_highlight_logic
-    ),
-    HighlightingIntervention(
-        trigger_event="onText",
         highlight_func=simple_highlight_logic
     ),
     ContextualToxicityHighlightingIntervention(
