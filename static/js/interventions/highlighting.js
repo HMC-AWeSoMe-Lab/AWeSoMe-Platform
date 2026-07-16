@@ -1,6 +1,6 @@
 import { appState } from '../services/appState.js';
 import { domManager } from '../dom/domManager.js';
-import { utils, debounce } from '../services/utils.js';
+import { utils } from '../services/utils.js';
 
 let highlightFeatureEnabled = null;
 
@@ -128,21 +128,74 @@ function ensureStyles() {
             pointer-events: none;
             background: transparent;
         }
+        /* Underlines are drawn as a background-image (a thin gradient strip)
+           rather than via text-decoration or border-bottom.
+
+           Why: text-decoration-line's browser rendering skips/interrupts the
+           line under descenders on certain lone letters (g, p, y, q, j),
+           producing a visibly "shattered" underline with gaps. border-bottom
+           draws a full-width box per line-wrapped fragment of the span,
+           and those boxes can land a pixel or two off from the glyph
+           baseline depending on font metrics/line-height, so the underline
+           visibly detaches/shifts right where a highlighted phrase wraps
+           onto the next line.
+
+           THE ACTUAL FIX (previous attempts got this wrong): with
+           box-decoration-break: clone, an inline box's background is NOT
+           independently sized per wrapped fragment. Per spec, the element
+           is first rendered "as if its box were not fragmented" (i.e.
+           background-size percentages resolve against the box's
+           hypothetical *unwrapped* width, spanning however long the
+           phrase would be on one line), and only THEN is that single
+           rendering sliced/cloned across the actual wrapped fragments.
+           That's why background-size: 100% previously produced a strip
+           sized to the whole unwrapped phrase - on the first fragment it
+           overran past that fragment's own short width onto the next
+           line, and on the second fragment it started a full copy of
+           that same oversized strip from its own left edge, so the
+           underline visibly detached, overshot, and shifted.
+
+           The fix is to never size the background as a percentage of the
+           box at all. Instead the gradient is a *repeating* pattern
+           whose single tile is entirely solid (both color stops equal),
+           tiled at a small fixed pixel width via background-repeat-x.
+           Because every tile is pixel-for-pixel identical, however many
+           tiles happen to fit under a given fragment - whatever that
+           fragment's actual own width is - the result reads as one
+           continuous, unbroken line that always ends exactly at that
+           fragment's own right edge. No fragment ever borrows sizing
+           information from the box's hypothetical unwrapped width. */
         .highlights-container .trigger-word {
             color: transparent;
-            border-bottom: 2px solid #e53935;
-            border-radius: 0;
+            background-image: repeating-linear-gradient(to right, #e53935 0, #e53935 4px);
+            background-repeat: repeat-x;
+            background-size: 4px 2px;
+            background-position: left 0px bottom 1px;
+            box-decoration-break: clone;
+            -webkit-box-decoration-break: clone;
         }
         .highlights-container .trigger-word.hovered {
             background-color: rgba(229, 57, 53, 0.18);
+            background-image: repeating-linear-gradient(to right, #e53935 0, #e53935 4px);
+            background-repeat: repeat-x;
+            background-size: 4px 2px;
+            background-position: left 0px bottom 1px;
         }
         .highlights-container .toxicity-word {
             color: transparent;
-            border-bottom: 2px solid #fb8c00;
-            border-radius: 0;
+            background-image: repeating-linear-gradient(to right, #fb8c00 0, #fb8c00 4px);
+            background-repeat: repeat-x;
+            background-size: 4px 2px;
+            background-position: left 0px bottom 1px;
+            box-decoration-break: clone;
+            -webkit-box-decoration-break: clone;
         }
         .highlights-container .toxicity-word.hovered {
             background-color: rgba(251, 140, 0, 0.18);
+            background-image: repeating-linear-gradient(to right, #fb8c00 0, #fb8c00 4px);
+            background-repeat: repeat-x;
+            background-size: 4px 2px;
+            background-position: left 0px bottom 1px;
         }
         .hw-tooltip {
             position: fixed;
@@ -514,7 +567,34 @@ export function applyHighlights(textarea, ranges) {
     return container;
 }
 
-export const updateHighlights = debounce(async () => {
+// ── Call-throttling config for the toxicity/highlight LLM calls ────────────
+// New calling logic while the user is actively typing:
+//   - Only issue a new LLM call if at least MIN_CALL_INTERVAL_MS has passed
+//     since the last call AND the character just typed is a space,
+//     punctuation mark, or emoji.
+//   - If the user stops typing (no qualifying or non-qualifying keystroke)
+//     for IDLE_CALL_DELAY_MS, fire one final call so the last partial word
+//     still gets checked even if it never ended in a qualifying character.
+const MIN_CALL_INTERVAL_MS = 1000;
+const IDLE_CALL_DELAY_MS   = 1000;
+
+// Punctuation: standard ASCII punctuation/symbols.
+// Emoji: covers the common emoji Unicode blocks (emoticons, symbols &
+// pictographs, transport, supplemental symbols, dingbats, variation
+// selectors, and skin-tone modifiers) so multi-codepoint emoji sequences
+// still register as "an emoji was typed".
+const PUNCTUATION_RE = /[.,!?;:'"()\[\]{}\-_/\\@#$%^&*+=~`<>|]/;
+const EMOJI_RE = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{FE0F}\u{1F1E6}-\u{1F1FF}]/u;
+
+function isQualifyingChar(ch) {
+    if (!ch) return false;
+    if (ch === ' ') return true;
+    if (PUNCTUATION_RE.test(ch)) return true;
+    if (EMOJI_RE.test(ch)) return true;
+    return false;
+}
+
+async function runHighlightUpdate() {
     const enabled = await checkHighlightingEnabled();
     if (appState.mode !== 1 || !enabled) return;
 
@@ -537,7 +617,37 @@ export const updateHighlights = debounce(async () => {
     } catch (error) {
         console.error("[Highlight] Error updating highlights:", error);
     }
-}, 300);
+}
+
+let lastCallTime = 0;
+let idleTimer = null;
+
+// Called on every 'input' event. Decides whether this keystroke qualifies
+// for an immediate (rate-limited) call, and always (re)schedules the
+// "stopped typing" trailing call.
+export function updateHighlights(event) {
+    // Figure out the character that was just typed, if any (covers typed
+    // characters and IME composition; falls back gracefully for events
+    // that don't carry this info, e.g. paste/cut/delete).
+    const typedChar = event?.data ?? null;
+
+    const now = Date.now();
+    const intervalOk = (now - lastCallTime) >= MIN_CALL_INTERVAL_MS;
+
+    if (intervalOk && isQualifyingChar(typedChar)) {
+        lastCallTime = now;
+        runHighlightUpdate();
+    }
+
+    // Always reset the idle timer so that once the user pauses for
+    // IDLE_CALL_DELAY_MS with no qualifying keystroke, we still call once
+    // more to catch the trailing partial word/sentence.
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+        lastCallTime = Date.now();
+        runHighlightUpdate();
+    }, IDLE_CALL_DELAY_MS);
+}
 
 export function removeHighlights() {
     const textArea = domManager.get('textArea');
@@ -627,6 +737,20 @@ export function renderHighlighting(data) {
     }
     const textArea = domManager.get('textArea');
     if (!textArea) return;
+
+    // Guard against stale responses: if the user kept typing while this
+    // request was in flight, data.source_text (what the backend computed
+    // highlight_indices against) no longer matches the textarea's current
+    // value, and the [start, end] positions no longer point at the right
+    // characters. Rendering them anyway is what produced highlights
+    // visibly detached from their words / floating on the wrong line.
+    // A newer request is already on its way (or just landed) with
+    // up-to-date ranges, so it's safe to just skip this one rather than
+    // clear anything.
+    if (typeof data.source_text === 'string' && data.source_text !== textArea.value) {
+        return;
+    }
+
     // Convert raw [[start,end]] pairs to {start,end,variant} objects so
     // applyHighlights can pick the right CSS class and tooltip per variant.
     const variant = data.variant || 'default';
@@ -653,6 +777,17 @@ export function renderHighlightingBatch(dataList) {
     const allRanges = [];
     (dataList || []).forEach(data => {
         if (!data || !data.enabled || !data.highlight_indices?.length) return;
+
+        // Same staleness guard as renderHighlighting() (see comment
+        // there): skip any payload whose ranges were computed against
+        // text that's since changed, rather than mis-rendering it against
+        // the current text. Each payload in the batch is checked
+        // independently since different HighlightingIntervention variants
+        // could in principle respond to different-aged requests.
+        if (typeof data.source_text === 'string' && data.source_text !== textArea.value) {
+            return;
+        }
+
         const variant = data.variant || 'default';
         data.highlight_indices.forEach(([s, e, reason]) => {
             allRanges.push({ start: s, end: e, variant, reason });

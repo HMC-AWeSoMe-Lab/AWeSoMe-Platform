@@ -69,6 +69,11 @@ class HighlightingIntervention(BaseIntervention):
             default=f"{len(highlight_ranges)} portion(s) of the user's comment matched the highlighting criteria"
         )
 
+        # Note: this dict does NOT need a "source_text" key. BaseIntervention.update()
+        # (see backend/interventions/base.py) automatically stamps every payload of
+        # type "highlighting" with the exact text it was computed against, regardless
+        # of whether that payload came from here or from a subclass's own get_payload
+        # override. The frontend uses that to discard stale responses.
         return {
             "type": "highlighting",
             "triggerEvent": self.trigger_event,

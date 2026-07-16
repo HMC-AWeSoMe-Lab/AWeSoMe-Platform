@@ -31,7 +31,24 @@ class BaseIntervention(abc.ABC):
         
         This method passes all provided parameters to the concrete implementation's 
         get_payload method.
-        
+
+        For any payload of type "highlighting" (whether from
+        HighlightingIntervention.get_payload or from a subclass that
+        overrides get_payload entirely, e.g. one forwarding extra
+        conversation context into a custom LLM-backed highlighter),
+        this also stamps the payload with "source_text": the exact
+        text this update() call was given. The frontend uses that to
+        detect and discard stale responses: if the user kept typing
+        while this request was in flight, highlight_indices describes
+        positions in text that no longer exists, and rendering them
+        against the textarea's now-current value paints highlights in
+        the wrong place. Doing this here, once, in the shared base
+        class - rather than requiring every highlighting subclass to
+        remember to add "source_text" to its own returned dict - means
+        a future highlighting intervention gets this protection
+        automatically, even if it overrides get_payload completely and
+        never calls super().get_payload().
+
         :param convo: Conversation object containing context data
         :type convo: object or None
         :param text: Text content from user input
@@ -41,7 +58,10 @@ class BaseIntervention(abc.ABC):
         :returns: The intervention payload or None if not applicable
         :rtype: dict or None
         """
-        return self.get_payload(convo=convo, text=text, **kwargs)
+        payload = self.get_payload(convo=convo, text=text, **kwargs)
+        if isinstance(payload, dict) and payload.get("type") == "highlighting":
+            payload.setdefault("source_text", text or "")
+        return payload
 
     @abc.abstractmethod
     def get_payload(self, **kwargs):

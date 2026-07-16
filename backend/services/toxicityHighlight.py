@@ -55,6 +55,7 @@ To wire this in, add ONE entry to INTERVENTIONS in app.py:
 
 import json
 import re
+import time
 
 from backend.interventions.highlighting import HighlightingIntervention
 from backend.interventions.interventionHelpers import TRIGGER_WORDS
@@ -93,6 +94,11 @@ Look for BOTH words and phrases.
 
 Example output for a draft like "You are stupid and ugly":
 [{"word": "ugly", "reason": "A direct personal insult attacking the recipient's physical appearance."}]
+This is because “stupid” is already a highlighted trigger word and should not be highlighted again. 
+
+
+Example output for a draft like "You are ugly and stupid":
+[{"phrase": "You are ugly", "reason": "A direct personal insult attacking the recipient's physical appearance."}]
 This is because “stupid” is already a highlighted trigger word and should not be highlighted again. 
 
 
@@ -332,71 +338,158 @@ def _phrases_to_ranges(draft_text, flagged):
 
 
 # ---------------------------------------------------------------------------
-# Per-session state: change detection + sticky per-phrase reasons
+# Per-session state: LLM call gating + sticky per-phrase reasons
 # ---------------------------------------------------------------------------
 # Two separate problems, both keyed by convo_id (the id of the active
 # conversation / session), so one user's in-progress typing never reads or
 # writes another user's state:
 #
-# 1. AVOID RE-CALLING THE LLM ON NON-ALPHABETIC EDITS
-#    Typing a space, punctuation, or an emoji shouldn't cause the LLM to
-#    re-judge the whole draft (it's non-deterministic, so the same
-#    substance can come back with a different reason or slightly
-#    different span each time). We only re-call the LLM when the
-#    *alphabetic* content of the draft has actually changed since the
-#    last call for this convo_id.
+# 1. GATE WHEN THE LLM IS ACTUALLY CALLED
+#    Calling the LLM on every keystroke would be slow and expensive, and
+#    typing a single mid-word letter rarely changes the toxicity judgment
+#    of the whole draft anyway. Instead:
+#      - The LLM is only called once at least MIN_LLM_CALL_INTERVAL_SECONDS
+#        has passed since the last LLM call for this convo_id, AND
+#      - the draft's last character is a space, punctuation mark, or
+#        emoji (i.e. the user just finished typing a word/clause) —
+#      - OR, regardless of the last character, if the user has gone quiet
+#        for MIN_LLM_CALL_INTERVAL_SECONDS (no request arrived sooner) and
+#        the draft has changed since the last LLM call, we still fire once
+#        so the trailing partial word/sentence gets checked. This request
+#        is delivered for free by the existing onText trigger (debounced
+#        300ms client-side) — the *next* request to arrive after a lull is
+#        naturally "the user paused," so no separate frontend timer is
+#        needed to detect it.
+#    Requests that don't qualify reuse the last-known ranges, recomputed
+#    against the current text so positions stay correct even though
+#    nothing was re-judged.
 #
 # 2. KEEP A FLAGGED PHRASE'S REASON STABLE ONCE ASSIGNED
 #    Once a phrase has been flagged with a given reason, that reason is
 #    remembered for the rest of the session (per convo_id) and reused
 #    verbatim as long as the same phrase still appears verbatim in the
-#    draft — even if the LLM is re-called (because other alphabetic
-#    content changed) and would have worded the reason differently this
-#    time. The reason is only replaced if the user actually edits the
-#    alphabetic characters *of that phrase itself*, which removes it from
-#    the draft and lets a fresh LLM call assign a new reason if it's
-#    re-flagged.
-_last_alpha_by_convo = {}   # convo_id -> last alphabetic-only text seen
-_reason_ledger_by_convo = {}  # convo_id -> {lowercased phrase: reason}
+#    draft — even if the LLM is re-called (because the gate above allowed
+#    it) and would have worded the reason differently this time. The
+#    reason is only replaced if the user actually edits the characters
+#    *of that phrase itself*, which removes it from the draft and lets a
+#    fresh LLM call assign a new reason if it's re-flagged.
+_last_call_time_by_convo = {}   # convo_id -> time.monotonic() of last LLM call
+_last_text_by_convo = {}        # convo_id -> draft text as of the last LLM call
+_reason_ledger_by_convo = {}    # convo_id -> {lowercased phrase: reason}
+
+MIN_LLM_CALL_INTERVAL_SECONDS = 1.0
+
+# Standard ASCII punctuation/symbols — mirrors the set the frontend treats
+# as "qualifying" characters for its own display-side bookkeeping.
+_PUNCTUATION_CHARS = set(".,!?;:'\"()[]{}-_/\\@#$%^&*+=~`<>|")
+
+# Common emoji Unicode ranges (emoticons, symbols & pictographs, dingbats,
+# transport, supplemental symbols, variation selectors, regional
+# indicators for flag emoji) — covers the vast majority of emoji typed
+# via standard keyboards/pickers.
+_EMOJI_RANGES = (
+    (0x1F300, 0x1FAFF),
+    (0x2600, 0x27BF),
+    (0x2190, 0x21FF),
+    (0x2B00, 0x2BFF),
+    (0xFE0F, 0xFE0F),
+    (0x1F1E6, 0x1F1FF),
+)
 
 
-_ALPHA_ONLY_RE = re.compile(r"[^a-zA-Z]+")
-
-
-def _alphabetic_signature(text):
+def _is_qualifying_char(ch):
     """
-    Reduce text to just its lowercased alphabetic characters, so that
-    edits which only add/remove spaces, punctuation, digits, or emoji
-    are indistinguishable from a no-op for change-detection purposes.
+    True if `ch` is a space, punctuation mark, or emoji — the set of
+    "just finished a word/clause" characters that make the current
+    request eligible to trigger a fresh LLM call (subject to the
+    MIN_LLM_CALL_INTERVAL_SECONDS cooldown).
 
-    :param text: any text
-    :type text: str
-    :return: lowercased alphabetic-only signature
-    :rtype: str
+    :param ch: a single character (or None/empty)
+    :type ch: str or None
+    :return: whether this character qualifies
+    :rtype: bool
     """
-    return _ALPHA_ONLY_RE.sub("", text or "").lower()
+    if not ch:
+        return False
+    if ch == " ":
+        return True
+    if ch in _PUNCTUATION_CHARS:
+        return True
+    codepoint = ord(ch)
+    return any(lo <= codepoint <= hi for lo, hi in _EMOJI_RANGES)
+
+
+def _should_call_llm(convo_id, text):
+    """
+    Decide whether this request should trigger a fresh LLM call.
+
+    :param convo_id: id used to scope per-session gating state
+    :param text: the draft text as of this request
+    :return: True if the LLM should be called now
+    :rtype: bool
+    """
+    now = time.monotonic()
+    last_call_time = _last_call_time_by_convo.get(convo_id)
+
+    # First request ever seen for this convo — always call once so the
+    # draft gets an initial judgment.
+    if last_call_time is None:
+        return True
+
+    elapsed = now - last_call_time
+    if elapsed < MIN_LLM_CALL_INTERVAL_SECONDS:
+        return False
+
+    # Cooldown has elapsed. Either the user just typed a qualifying
+    # character (fire immediately), or enough time has passed that this
+    # request represents the user having paused/stopped — fire so the
+    # trailing partial text still gets checked, but only if the text
+    # actually changed since the last LLM call (no point re-calling on an
+    # identical draft).
+    if _is_qualifying_char(text[-1] if text else None):
+        return True
+
+    return _last_text_by_convo.get(convo_id) != text
 
 
 def _get_reason_ledger(convo_id):
     return _reason_ledger_by_convo.setdefault(convo_id, {})
 
 
-def _apply_sticky_reasons(convo_id, flagged):
+def _apply_sticky_reasons(convo_id, flagged, current_text):
     """
     Merge freshly-returned {"phrase", "reason"} items with this session's
-    remembered reasons: if a phrase was already flagged before, keep its
-    original reason instead of the LLM's newest wording, and record any
-    genuinely new phrase's reason for future reuse.
+    remembered phrases/reasons, so a previously-flagged phrase's highlight
+    never moves, changes reason, or disappears on its own — it can only
+    change if the user actually edits *that phrase's own characters*.
+
+    Two things happen here:
+      1. For phrases the LLM re-flags this round, keep the original
+         remembered reason instead of the LLM's newest (possibly
+         differently-worded) reason.
+      2. For phrases that were flagged in a previous call and are STILL
+         present verbatim in the current draft, but that this round's LLM
+         call simply didn't re-flag (LLM output isn't perfectly
+         repeatable call to call — see module docstring), add them back
+         in. This is what stops a highlight from flickering/vanishing
+         just because the LLM's fresh judgment didn't happen to mention
+         it again; it can only truly go away via _forget_edited_phrases,
+         which already only fires when the phrase's own characters were
+         actually edited.
 
     :param convo_id: id used to scope the per-session ledger
     :param flagged: list of {"phrase": ..., "reason": ...} dicts fresh
         from this LLM call
-    :return: list of {"phrase": ..., "reason": ...} dicts with reasons
-        stabilized against the ledger
+    :param current_text: the draft text as it currently stands, used to
+        confirm previously-ledgered phrases are still verbatim present
+    :return: list of {"phrase": ..., "reason": ...} dicts, reasons
+        stabilized and previously-flagged-but-unedited phrases retained
     :rtype: list[dict]
     """
     ledger = _get_reason_ledger(convo_id)
     result = []
+    seen_keys = set()
+
     for item in flagged:
         phrase = item["phrase"]
         key = phrase.lower()
@@ -406,6 +499,17 @@ def _apply_sticky_reasons(convo_id, flagged):
             reason = item["reason"]
             ledger[key] = reason
         result.append({"phrase": phrase, "reason": reason})
+        seen_keys.add(key)
+
+    # Re-add any ledgered phrase the LLM didn't mention this round, as
+    # long as it's still verbatim in the text (phrases that were edited
+    # away were already dropped from the ledger by _forget_edited_phrases
+    # before this function runs).
+    for phrase, reason in _ledger_phrases_with_original_casing(ledger, current_text):
+        if phrase.lower() not in seen_keys:
+            result.append({"phrase": phrase, "reason": reason})
+            seen_keys.add(phrase.lower())
+
     return result
 
 
@@ -413,12 +517,12 @@ def _forget_edited_phrases(convo_id, current_text):
     """
     Drop any ledger entries whose phrase no longer appears verbatim
     (case-insensitively) in the current draft. This is what makes a
-    reason "unstick": once the user edits the alphabetic characters of a
-    previously-flagged phrase enough that it's no longer a substring of
-    the draft, its remembered reason is forgotten, so if the user later
-    retypes that same phrase it's treated as newly flagged and a fresh
-    reason is assigned. Phrases that still appear untouched elsewhere in
-    the draft keep their remembered reason.
+    reason "unstick": once the user edits a previously-flagged phrase
+    enough that it's no longer a substring of the draft, its remembered
+    reason is forgotten, so if the user later retypes that same phrase
+    it's treated as newly flagged and a fresh reason is assigned.
+    Phrases that still appear untouched elsewhere in the draft keep their
+    remembered reason.
 
     :param convo_id: id used to scope the per-session ledger
     :param current_text: the draft text as it currently stands
@@ -444,11 +548,13 @@ def toxic_highlight_logic(text, convo=None, convo_id=None, latest_id=None, bucke
     convo_id's session (see module docstring above for the two
     stability guarantees this provides).
 
-    The LLM is only re-called when the alphabetic content of the draft
-    has changed since the last call for this convo_id; purely
-    punctuation/whitespace/emoji edits reuse the previous ranges as-is
-    (recomputed against the new text so positions stay correct even
-    though nothing was re-judged).
+    The LLM is only called when _should_call_llm() allows it: at most
+    once per MIN_LLM_CALL_INTERVAL_SECONDS, and only when either (a) the
+    draft's last character is a space/punctuation/emoji, or (b) the user
+    has gone quiet long enough that this is effectively the "stopped
+    typing" trailing check. All other requests reuse the previously
+    known ranges, recomputed against the current text so positions stay
+    correct even though nothing was re-judged this round.
 
     :param text: the user's draft comment text
     :param convo: Conversation object (or None)
@@ -460,7 +566,8 @@ def toxic_highlight_logic(text, convo=None, convo_id=None, latest_id=None, bucke
     :raises ValueError: if the LLM call fails or returns unparseable output
     """
     if not text:
-        _last_alpha_by_convo.pop(convo_id, None)
+        _last_call_time_by_convo.pop(convo_id, None)
+        _last_text_by_convo.pop(convo_id, None)
         _reason_ledger_by_convo.pop(convo_id, None)
         return []
 
@@ -469,24 +576,21 @@ def toxic_highlight_logic(text, convo=None, convo_id=None, latest_id=None, bucke
     # the LLM this round or not.
     _forget_edited_phrases(convo_id, text)
 
-    alpha_sig = _alphabetic_signature(text)
-    alpha_unchanged = _last_alpha_by_convo.get(convo_id) == alpha_sig
-
-    if alpha_unchanged:
-        # Nothing alphabetic changed — don't re-call the LLM. Just
-        # re-derive ranges for the phrases we already know about against
-        # the (possibly shifted, due to punctuation/space edits)
-        # current text, using their stable, ledgered reasons.
+    if not _should_call_llm(convo_id, text):
+        # Gate says: reuse what we already know. Just re-derive ranges
+        # for the phrases we already know about against the (possibly
+        # shifted) current text, using their stable, ledgered reasons.
         ledger = _get_reason_ledger(convo_id)
         flagged = [{"phrase": phrase, "reason": reason}
                    for phrase, reason in _ledger_phrases_with_original_casing(ledger, text)]
         return _phrases_to_ranges(text, flagged)
 
     flagged = _call_llm_for_toxicity(convo, latest_id, text, bucket)
-    flagged = _apply_sticky_reasons(convo_id, flagged)
+    flagged = _apply_sticky_reasons(convo_id, flagged, text)
     ranges = _phrases_to_ranges(text, flagged)
 
-    _last_alpha_by_convo[convo_id] = alpha_sig
+    _last_call_time_by_convo[convo_id] = time.monotonic()
+    _last_text_by_convo[convo_id] = text
     return ranges
 
 
@@ -562,6 +666,9 @@ class ContextualToxicityHighlightingIntervention(HighlightingIntervention):
             reason = (f"{len(highlight_ranges)} portion(s) of the draft were flagged as potentially "
                       f"raising the tension of the conversation")
 
+        # Note: no "source_text" key needed here — BaseIntervention.update()
+        # attaches it automatically to any "highlighting"-typed payload,
+        # including this override (see backend/interventions/base.py).
         return {
             "type": "highlighting",
             "triggerEvent": self.trigger_event,
