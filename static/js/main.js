@@ -17,7 +17,6 @@ import { pushToPayloadQueue } from './services/payloadQueue.js';
 
 import { initCommentLengthGuard } from './events/commentActions.js';
 
-// alongside your other init calls e.g. initializeHighlighting(), etc.
 initCommentLengthGuard();
 
 /**
@@ -254,6 +253,13 @@ async function initializeDOM() {
     setupInterventionTriggers();
     await initializeTheme();
     await initializeReplyStyle();
+    // Wires up the textarea's 'scroll' listener (syncScroll -> positionStack)
+    // so the highlight overlay tracks the textarea as it scrolls. Without
+    // this call the overlay is only ever positioned once, at render time
+    // (inside applyHighlights), and then never again - so scrolling the
+    // reply box leaves the highlighted spans stuck in place while the
+    // underlying text moves out from under them.
+    await initializeHighlighting();
   } catch (error) {
     console.error("Error during DOM initialization:", error);
   }

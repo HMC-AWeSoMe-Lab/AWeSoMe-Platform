@@ -123,23 +123,61 @@ function ensureStyles() {
     const style = document.createElement('style');
     style.id = 'highlight-styles';
     style.textContent = `
+        /* ── Overlay architecture ────────────────────────────────────
+           Earlier versions of this file gave .highlights-container its
+           own scrollTop/scrollLeft and tried to mirror the textarea's
+           scroll position onto it (via a 'scroll' event + syncScroll()).
+           That is fundamentally fragile: it requires (a) the textarea to
+           reliably fire a 'scroll' event for every change in its scroll
+           position - including the browser's own automatic "scroll to
+           keep the caret visible" while typing, which does not always
+           fire one before the next paint - and (b) the container to
+           already have a real scrollHeight greater than its clientHeight
+           at the moment scrollTop is assigned, or the browser silently
+           clamps the assignment back to 0. Any gap in either of those
+           (an async re-render landing between keystrokes, a rebuilt
+           container that hasn't been laid out yet, etc.) leaves the
+           highlight layer's scroll position stale while the textarea's
+           own content keeps moving - which is exactly the "highlights
+           stay on screen while the flagged content scrolls" bug.
+
+           This version removes the second independent scroll position
+           entirely. .highlights-container itself never scrolls (no
+           scrollTop of its own to fall out of sync) - it's a fixed clip
+           box the same size as the textarea's visible area, with
+           overflow:hidden. All of the actual highlighted text lives in
+           one child, .highlight-stack, which is simply moved with
+           transform: translate() by exactly the textarea's current
+           scrollTop/scrollLeft, in the same place the render already
+           happens (see positionStack() in the JS). A transform offset
+           can't be "clamped" or silently ignored the way scrollTop can -
+           it's a plain numeric style write - so there is no separate
+           state to fall out of sync in the first place. */
         .highlights-container {
             pointer-events: none;
             user-select: none;
             overflow: hidden;
         }
-        /* Each variant renders into its own absolutely-positioned, fully
-           transparent-background layer stacked on top of the others.
-           Because every layer independently spans the whole textarea and
-           only paints its own spans, overlapping ranges from different
-           variants never compete for the same DOM text run - each variant
-           keeps its own underline/background no matter what else overlaps it. */
-        .highlights-container .highlight-layer {
+        .highlights-container .highlight-stack {
             position: absolute;
             top: 0;
             left: 0;
-            right: 0;
-            bottom: 0;
+            width: 100%;
+            will-change: transform;
+        }
+        /* Each variant renders into its own fully transparent-background
+           layer, in-flow inside .highlight-stack, stacked on top of one
+           another via a negative margin-top set in JS once each layer's
+           real rendered height is known (applyHighlights()). Because
+           every layer independently spans the whole textarea and only
+           paints its own spans, overlapping ranges from different
+           variants never compete for the same DOM text run - each
+           variant keeps its own underline/background no matter what else
+           overlaps it. */
+        .highlights-container .highlight-layer {
+            position: relative;
+            display: block;
+            width: 100%;
             pointer-events: none;
             background: transparent;
         }
@@ -523,26 +561,17 @@ export function applyHighlights(textarea, ranges) {
     }
 
     const cs = window.getComputedStyle(textarea);
+    // .highlights-container is a fixed clip box, exactly the textarea's
+    // visible border-box, with overflow:hidden. It never has a scroll
+    // position of its own (see the architecture comment in ensureStyles).
     Object.assign(container.style, {
         position:      'absolute',
         top:           textarea.offsetTop + 'px',
         left:          textarea.offsetLeft + 'px',
         width:         textarea.offsetWidth + 'px',
         height:        textarea.offsetHeight + 'px',
-        padding:       cs.padding,
         border:        cs.border,
-        margin:        cs.margin,
-        fontFamily:    cs.fontFamily,
-        fontSize:      cs.fontSize,
-        fontWeight:    cs.fontWeight,
-        lineHeight:    cs.lineHeight,
-        letterSpacing: cs.letterSpacing,
-        wordSpacing:   cs.wordSpacing,
-        textAlign:     cs.textAlign,
-        whiteSpace:    cs.whiteSpace,
-        wordWrap:      cs.wordWrap,
         boxSizing:     cs.boxSizing,
-        overflow:      'hidden',
         background:    'transparent',
         color:         'transparent',
         zIndex:        '1'
@@ -553,6 +582,30 @@ export function applyHighlights(textarea, ranges) {
         position:   'relative',
         zIndex:     '2'
     });
+
+    // .highlight-stack is the piece that actually gets moved to track
+    // scrolling (see positionStack()). It carries the padding/font
+    // metrics so the text inside it lines up with the textarea's own
+    // text, and it holds one in-flow .highlight-layer per variant,
+    // stacked on top of each other with a negative margin-top (computed
+    // once each layer's real height is known, right after it's attached
+    // to the document - see below).
+    const stack = document.createElement('div');
+    stack.className = 'highlight-stack';
+    Object.assign(stack.style, {
+        padding:       cs.padding,
+        fontFamily:    cs.fontFamily,
+        fontSize:      cs.fontSize,
+        fontWeight:    cs.fontWeight,
+        lineHeight:    cs.lineHeight,
+        letterSpacing: cs.letterSpacing,
+        wordSpacing:   cs.wordSpacing,
+        textAlign:     cs.textAlign,
+        whiteSpace:    cs.whiteSpace,
+        wordWrap:      cs.wordWrap,
+        boxSizing:     'border-box'
+    });
+    container.appendChild(stack);
 
     // Render one independent, fully-stacked layer per variant. Each layer
     // contains the *entire* text, with only its own variant's spans
@@ -568,10 +621,26 @@ export function applyHighlights(textarea, ranges) {
         layer.className = 'highlight-layer';
         layer.dataset.variant = variant;
         layer.innerHTML = buildLayerHTML(text, { variant, items });
-        container.appendChild(layer);
+        stack.appendChild(layer);
     });
 
     parent.insertBefore(container, textarea);
+
+    // Now that every layer is attached to the document (via stack →
+    // container → parent, just inserted above), each layer's real
+    // rendered height is available. Pull every layer after the first
+    // back up on top of the previous one - this MUST happen after
+    // insertBefore(): an element not yet in the document tree always
+    // reports offsetHeight === 0, so doing this before insertion (as an
+    // earlier version of this function did) silently computed
+    // `marginTop: -0px` and left every layer after the first stacking
+    // below the one before it instead of overlapping it.
+    const layers = stack.querySelectorAll('.highlight-layer');
+    layers.forEach((layer, i) => {
+        if (i > 0) layer.style.marginTop = (-layer.offsetHeight) + 'px';
+    });
+
+    positionStack(textarea);
 
     textarea.removeEventListener('mousemove',  onTextareaMouseMove);
     textarea.removeEventListener('mouseleave', onTextareaMouseLeave);
@@ -580,6 +649,23 @@ export function applyHighlights(textarea, ranges) {
 
     console.log("[Highlight] Applied underline highlights");
     return container;
+}
+
+// Moves .highlight-stack by exactly the textarea's current scroll offset.
+// This is the single source of truth for keeping the highlight layer
+// attached to its flagged text while the textarea scrolls - called both
+// right after every (re)render (applyHighlights) and on every native
+// 'scroll' event the textarea fires (see syncScroll/initializeHighlighting).
+// A transform is a plain numeric style write with no notion of "nothing to
+// scroll" to clamp against, unlike element.scrollTop on a real scrolling
+// container - so, unlike the old scrollTop-mirroring approach, this can't
+// silently no-op just because the container hasn't finished laying out yet.
+export function positionStack(textarea) {
+    if (!textarea) return;
+    const container = textarea.parentNode?.querySelector('.highlights-container');
+    const stack = container?.querySelector('.highlight-stack');
+    if (!stack) return;
+    stack.style.transform = `translate(${-textarea.scrollLeft}px, ${-textarea.scrollTop}px)`;
 }
 
 // ── Call-throttling config for the toxicity/highlight LLM calls ────────────
@@ -641,6 +727,20 @@ let idleTimer = null;
 // for an immediate (rate-limited) call, and always (re)schedules the
 // "stopped typing" trailing call.
 export function updateHighlights(event) {
+    // Re-derive the stack's position from the textarea's scroll offset on
+    // every keystroke, synchronously, independent of whether this
+    // keystroke also triggers a highlight fetch below. Typing past the
+    // bottom of the box auto-scrolls the textarea to keep the caret
+    // visible; that already fires a native 'scroll' event in every
+    // browser tested, but doing it here too costs nothing (it's a cheap
+    // synchronous style write) and removes any dependency on relative
+    // event-ordering between 'input' and 'scroll' for the very next
+    // paint - the highlight layer is at most one frame away from the
+    // textarea's own scroll position, never however long the in-flight
+    // /interventions fetch below takes to resolve.
+    const textAreaEl = domManager.get('textArea');
+    if (textAreaEl) positionStack(textAreaEl);
+
     // Figure out the character that was just typed, if any (covers typed
     // characters and IME composition; falls back gracefully for events
     // that don't carry this info, e.g. paste/cut/delete).
@@ -683,17 +783,27 @@ export function removeHighlights() {
 export function syncScroll() {
     const textArea = domManager.get('textArea');
     if (!textArea) return;
-    const container = textArea.parentNode?.querySelector('.highlights-container');
-    if (container) {
-        container.scrollTop  = textArea.scrollTop;
-        container.scrollLeft = textArea.scrollLeft;
-    }
+    positionStack(textArea);
 }
 
 export async function initializeHighlighting() {
     console.log("[Highlight] Initializing...");
-    const enabled = await checkHighlightingEnabled();
-    if (appState.mode !== 1 || !enabled) return;
+    // NOTE: deliberately no appState.mode / checkHighlightingEnabled gate
+    // here. This function only wires a passive scroll/resize listener that
+    // keeps an already-rendered overlay glued to the textarea - it doesn't
+    // render anything itself. For control-mode users (or if highlighting is
+    // disabled) the backend simply never returns highlight data, so
+    // applyHighlights() never runs and this listener stays inert; gating
+    // has no benefit here. It does have a cost: appState.mode is only ever
+    // assigned inside idToMode() (apiService.js), which runs from
+    // window.onload - and this function is invoked from initializeDOM(),
+    // which runs on the strictly-earlier DOMContentLoaded event. Checking
+    // appState.mode here means it is always still null (its constructor
+    // default) at the moment of the check, so `appState.mode !== 1` was
+    // always true and this function always returned before attaching the
+    // scroll listener - regardless of the user's actual mode. That is the
+    // actual root cause of highlights not tracking scroll: this function
+    // was reachable but its own gate made it a no-op on every single call.
 
     const waitForTextArea = () => new Promise(resolve => {
         const check = () => {
@@ -705,9 +815,22 @@ export async function initializeHighlighting() {
     });
 
     const textArea = await waitForTextArea();
-    textArea.removeEventListener('input', updateHighlights);
+    // NOTE: this intentionally does NOT wire 'input' -> updateHighlights.
+    // eventSetup.js's setupInterventionTriggers() already attaches its own
+    // debounced 'input' listener on the same textarea that calls
+    // triggerInterventions() -> renderHighlightingBatch() -> applyHighlights(),
+    // and that is the app's one real, live rendering pipeline (it also owns
+    // side effects like appState.setLatestAction/pushToPayloadQueue for the
+    // fetched text). updateHighlights()/runHighlightUpdate()/getHighlights()
+    // below are a second, independent input->fetch->render path hitting the
+    // same /interventions endpoint. Wiring both up at once means every
+    // keystroke fires two competing requests and, whichever response lands
+    // second, tears down and rebuilds .highlights-container out from under
+    // the other - and duplicates the appState/payload-queue side effects too.
+    // This function's job is narrower: keep the overlay's position glued to
+    // the textarea while it scrolls or the window resizes, regardless of
+    // which pipeline last rendered it.
     textArea.removeEventListener('scroll', syncScroll);
-    textArea.addEventListener('input', updateHighlights);
     textArea.addEventListener('scroll', syncScroll);
 
     const handleResize = () => {
@@ -720,6 +843,12 @@ export async function initializeHighlighting() {
                 height: textArea.offsetHeight + 'px'
             });
         }
+        // A resize can change how much the textarea needs to scroll (e.g.
+        // growing taller might bring previously-clipped content back into
+        // view), so re-derive the stack's transform from the textarea's
+        // current scroll position rather than leaving the old offset in
+        // place.
+        positionStack(textArea);
     };
     window.removeEventListener('resize', handleResize);
     window.addEventListener('resize', handleResize);
