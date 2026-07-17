@@ -74,8 +74,12 @@ function escapeHTML(str) {
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
-        .replace(/ /g, '&nbsp;')
         .replace(/\n/g, '<br>');
+    // NOTE: do NOT replace spaces with &nbsp; here. &nbsp; is a different
+    // character with different metrics than a plain space, so the overlay
+    // text runs wider than the textarea's own text and every character
+    // after a space shifts right — detaching highlights from their words.
+    // white-space: pre-wrap on .highlight-stack preserves plain spaces fine.
 }
 
 // Merges overlapping/adjacent ranges WITHIN one variant.
@@ -397,9 +401,9 @@ function getCharIndexAtMouse(textarea, mouseX, mouseY) {
     let html = '';
     for (let i = 0; i < text.length; i++) {
         const ch = text[i];
-        const escaped = ch === ' ' ? '&nbsp;'
-                      : ch === '\n' ? '<br>'
+        const escaped = ch === '\n' ? '<br>'
                       : ch.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        // NOTE: plain spaces are left as-is (not &nbsp;) — see escapeHTML().
         if (inRange.has(i)) {
             html += `<span data-idx="${i}">${escaped}</span>`;
         } else {
