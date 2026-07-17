@@ -112,6 +112,7 @@ createClickHandler(container, fallbackActionType = "ELEMENT_CLICK") {
     async handleKeyDown(event) {
         appState.setLatestAction("KEYSTROKE", event.key);
         console.log("Latest key:", appState.latestPayload);
+        await pushToPayloadQueue();
     },
 
     /**
