@@ -20,7 +20,7 @@ Designing a website tool from scratch requires valuable time, which could be spe
 
    * To see an example of how to do this, see the [**Interventions**](#interventions) section.
 
-3. Finally, researchers can customize the features they would like using:
+3. Finally, researchers can customize the features to design their user studies using:
 
    * [**Settings Configuration**](#settings-configuration)
    * [**Surveys and Additional Pages**](#surveys-and-additional-pages)
