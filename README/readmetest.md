@@ -34,7 +34,7 @@ While the majority of the files that researchers will edit will be in Python, ho
 
 Below is a detailed diagram of the HTML for the already implemented Popup class to help with people looking to add their own intervneitons.
 
-![diagram](static/images/HTMLexplan.drawio.svg)
+![diagram](../static/images/HTMLexplan.drawio.svg)
 
 
 Note that when writing HTML, things in quotes like "popup" or "popup-close-button" are names that can be defined by the researcher. However, in order to maintain consistent database logging, the website requires the parent wrapper of the intervention to be attached to the data_intervention_type along with data_event_id for event logging in the database.
