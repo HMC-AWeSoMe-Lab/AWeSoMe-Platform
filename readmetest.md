@@ -30,17 +30,16 @@ Designing a website tool from scratch requires valuable time, which could be spe
 
 ## Required Technical Skills
 
-While the code you write will be mostly Python, small amounts of HTML and CSS are required to power new interventions. Below we detail a diagram of the HTML for the already implemented Popup class to help people new to web development.
+While the majority of the files that researchers will edit will be in Python, however small amounts of HTML and CSS are required to power new interventions or edit existing ones. Additionally, to add custom information to the introduction, insturucitons, or exit pages researchers will need to edit the HTML files in the templates folder. More information about this can be found in the Surveys and Additonal Pages [**Surveys and Additional Pages**](#surveys-and-additional-pages). 
 
-*Note that when writing HTML, things in quotes like `"popup"` or `"popup-close-button"` are entirely user-decided. We could have an intervention called `fooBar` with corresponding element IDs `"prof"` and `"chang"`, but that would be pretty confusing! Try to match HTML element class and id names with the corresponding intervention.*
-
-**However**, to maintain consistent database logging, you are required to attach `data-intervention-type` to the parent wrapper of your interventions, along with `data-event-id` wherever you desire event logging for the database.
+Below is a detailed diagram of the HTML for the already implemented Popup class to help with people looking to add their own intervneitons.
 
 ![diagram](static/images/HTMLexplan.drawio.svg)
 
-The complete starter HTML, CSS guidance, and implementation details are available in the **Required Technical Skills** documentation.
 
-➡️ **Read more:** [Required Technical Skills](docs/required-technical-skills.md)
+Note that when writing HTML, things in quotes like "popup" or "popup-close-button" are names that can be defined by the researcher. However, in order to maintain consistent database logging, the website requires the parent wrapper of the intervention to be attached to the data_intervention_type along with data_event_id for event logging in the database.
+
+
 ---
 
 <a id="adapter-and-interface"></a>
