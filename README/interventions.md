@@ -1,10 +1,10 @@
-## Interventions
+# Interventions
 
 ![diagram](../static/images/interventionViz.svg)
 
 The customizable intervention is the most important feature of our platform, since researchers can fulfill different research needs by implementing their own interventions. We have an abstract interface facilitating customization and three generic classes representing the popular ideas about interventions: the feedback box, the highlighting, and the pop-up. The researchers can add their interventions as one of the three types, or they can also write a new class for other types of interventions.
 
-### The base class
+## The base class
 
 Every intervention subclasses `BaseIntervention` (`backend/interventions/base.py`), which is abstract and defines two methods:
 
@@ -15,11 +15,11 @@ Because this stamping happens in `update()` rather than in each intervention's o
 
 Each request to `/interventions` iterates over the full `INTERVENTIONS` list (defined in `app.py`) and calls `.update(...)` on each one. Any intervention whose `get_payload()` returns a non-`None` dict gets included in the JSON response sent back to the frontend; the frontend then renders whichever ones match the current `triggerEvent` (see `main.js`'s `triggerInterventions()`).
 
-### Trigger events, not a separate "activation" step
+## Trigger events, not a separate "activation" step
 
 There's no separate mechanism that watches for "the user completed an action" — each intervention declares its own `trigger_event` (e.g. `"onText"`, `"onClick"`, `"onLoad"`) at construction time, and its `get_payload()` starts by checking `self.trigger_event == trigger_event` (the event the current request is actually reporting). If they don't match, it returns `None` immediately. `onClick` interventions additionally check `button_id` against a specific `self.button_id` they were configured with. It's this event/button matching inside `get_payload()`, not the base class, that decides whether an intervention "activates" for a given user action.
 
-### Custom variables per intervention
+## Custom variables per intervention
 
 Concrete intervention `__init__` methods take whatever configuration that intervention type needs, passed at registration time in `app.py`'s `INTERVENTIONS` list:
 
@@ -29,9 +29,48 @@ Concrete intervention `__init__` methods take whatever configuration that interv
 
 Below is a table with more information about the current interventions:
 
-INSERT_TABLE_HERE
 
-### `interventionHelpers.py`
+### Popup
+
+Modal dialog boxes that overlay the entire page, drawing immediate user attention. Popups can be triggered by page load (for welcome messages), button clicks (for confirmations or warnings), or dynamically appear with text input (for real-time feedback). They feature customizable HTML content, automatic centering, and a close button.
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `trigger_event` | string | Yes | When to show popup: `"onLoad"`, `"onClick"`, `"onText"` |
+| `text_func` | function | Yes | Function that generates popup content (receives user text) |
+| `button_id` | string | No | Specific button ID to trigger popup (for onClick events) |
+
+### Feedback Box
+
+Contextual information boxes that appear positioned relative to specific UI elements. Unlike popups, feedback boxes don't block page interaction and provide targeted guidance without interrupting user flow. They can be positioned above, below, left, or right of target elements with configurable widths and smart collision detection.
+
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `trigger_event` | string | Yes | When to show box: `"onLoad"`, `"onClick"`, `"onText"` |
+| `text_func` | function | Yes | Function that generates box content (receives user text) |
+| `button_id` | string | No | Specific button ID to trigger box (for onClick events) |
+| `parent_id` | string | Yes | HTML ID of element to position relative to |
+| `relation` | string | No | Positioning: `"above"`, `"below"`, `"left"`, `"right"`, `"inside"` (default: `"right"`) |
+| `width` | string | No | CSS width value (default: `"220px"`) |
+
+
+### Highlighting
+
+Real-time highlights that appear as a user drafts their reply in the text area. Highlights only interact with text actively being typed. 
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `trigger_event` | string | Yes | When to show highlights: `"onLoad"`, `"onClick"`, `"onText"` |
+| `highlight_func` | function | Yes | Function that generates box content (receives user text) |
+
+
+
+## `interventionHelpers.py`
 
 `backend/interventions/interventionHelpers.py` is the central library of matching/generation logic that interventions are configured with. It doesn't get called by the base or concrete intervention classes directly — instead, its functions are passed in as the `highlight_func`/`text_func` callables (and similar config) when each intervention is constructed in `app.py`'s `INTERVENTIONS` list. This is the file researchers edit to define new intervention behavior: writing a new function here (or editing an existing one) and pointing an intervention's constructor at it is the standard way to change what an intervention actually detects or displays, without touching the intervention classes themselves. It currently includes:
 
@@ -44,7 +83,7 @@ INSERT_TABLE_HERE
 
 To make the highlighting intervention highlight all trigger words, a researcher would add/edit `TRIGGER_WORDS` and the highlighting function (e.g. `default_highlight_logic`) here, then pass that function as `highlight_func` when constructing `HighlightingIntervention` in `app.py`.
 
-### AI-backed interventions (`backend/services/`)
+## AI-backed interventions (`backend/services/`)
 
 We currently keep all interventions whose logic needs an LLM call rather than a static keyword list in `backend/services/`, not `interventionHelpers.py`. But researchers can choose where they put their interventions. The example in this codebase is `backend/services/toxicityHighlight.py`, which implements contextual toxicity highlighting:
 
