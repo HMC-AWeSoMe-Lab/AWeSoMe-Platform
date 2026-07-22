@@ -68,7 +68,7 @@ Our platform includes three built-in intervention types: popup boxes, highlighti
 
 Most aspects of the platform can be configured through the settings file. Researchers can customize comment display, optional pages, surveys, reply behavior, timers, and other experiment settings without modifying the source code.
 
-➡️ **Read more:** [Settings Configuration](docs/settings-configuration.md)
+➡️ **Read more:** [Settings Configuration](settings-configuration.md)
 
 ---
 
