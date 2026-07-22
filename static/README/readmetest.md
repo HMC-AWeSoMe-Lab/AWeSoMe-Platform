@@ -6,7 +6,7 @@ This platform was designed for researchers interested in studying conversational
 
 ## Our Mission
 
-Designing a website tool from scratch requires valuable time, which could be spent conducting research. To lower the technical barrier, our adapter interface allows researchers to add their own conversations and interventions to our platform. This has all the required features already completed, such as general interventions that can be edited, a user interface where participants can interact with conversations, and data collection to store actions from the study locally.
+Designing a website tool from scratch requires valuable time, which could be spent conducting research. To lower the technical barrier, our adapter interface allows researchers to add their own conversations and interventions to our platform without touching the website code. This has all the required features already completed, such as general interventions that can be customized, a user interface where participants can interact with conversations, and data collection to store participants' actions during the study locally.
 
 ---
 
@@ -20,7 +20,7 @@ Designing a website tool from scratch requires valuable time, which could be spe
 
    * To see an example of how to do this, see the [**Interventions**](#interventions) section.
 
-3. Finally, researchers can customize the features they would like using:
+3. Finally, researchers can customize the features to design their user studies using:
 
    * [**Settings Configuration**](#settings-configuration)
    * [**Surveys and Additional Pages**](#surveys-and-additional-pages)
@@ -30,29 +30,15 @@ Designing a website tool from scratch requires valuable time, which could be spe
 
 ## Required Technical Skills
 
-While the majority of the files that researchers will edit will be in Python, small amounts of HTML and CSS are required to power new interventions or edit existing ones. Additionally, to add custom information to the introduction, instructions, or exit pages, researchers will need to edit the HTML files in the `templates` folder. More information about this can be found in the [**Surveys and Additional Pages**](#surveys-and-additional-pages) section.
+While the majority of the files that researchers will edit will be in Python, however small amounts of HTML and CSS are required to add new interventions or edit existing ones. Additionally, to add custom information to the introduction, insturucitons, or exit pages researchers will need to edit the HTML files in the templates folder. More information about this can be found in the Surveys and Additonal Pages [**Surveys and Additional Pages**](#surveys-and-additional-pages). 
 
-Below is a detailed diagram of the HTML for the already implemented Popup class to help people looking to add their own interventions.
+Below is a detailed diagram of the HTML for the already implemented Popup class to help with people looking to add their own intervneitons.
 
-```html
-<div class="your-intervention"
-     id="your-intervention"
-     data-intervention-type="your-intervention"
-     data-event-id="YOUR-INTERVENTION">
+![diagram](static/images/HTMLexplan.drawio.svg)
 
-    <h2>Your header here!</h2>
 
-    <p>Your intervention text here!</p>
+Note that when writing HTML, things in quotes like "popup" or "popup-close-button" are names that can be defined by the researcher. However, in order to maintain consistent database logging, the website requires the parent wrapper of the intervention to be attached to the data_intervention_type along with data_event_id for event logging in the database.
 
-    <button
-        class="your-intervention-button"
-        id="your-intervention-button">
-        OK
-    </button>
-</div>
-```
-
-> **Note:** When writing HTML, things in quotes like `"popup"` or `"popup-close-button"` are names that can be defined by the researcher. However, to maintain consistent database logging, the website requires the parent wrapper of the intervention to include `data-intervention-type` along with `data-event-id` for event logging in the database.
 
 ---
 
