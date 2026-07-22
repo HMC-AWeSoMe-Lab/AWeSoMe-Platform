@@ -30,7 +30,7 @@ Designing a website tool from scratch requires valuable time, which could be spe
 
 ## Required Technical Skills
 
-While the majority of the files that researchers will edit will be in Python, however small amounts of HTML and CSS are required to power new interventions or edit existing ones. Additionally, to add custom information to the introduction, insturucitons, or exit pages researchers will need to edit the HTML files in the templates folder. More information about this can be found in the Surveys and Additonal Pages [**Surveys and Additional Pages**](#surveys-and-additional-pages). 
+While the majority of the files that researchers will edit will be in Python, however small amounts of HTML and CSS are required to add new interventions or edit existing ones. Additionally, to add custom information to the introduction, insturucitons, or exit pages researchers will need to edit the HTML files in the templates folder. More information about this can be found in the Surveys and Additonal Pages [**Surveys and Additional Pages**](#surveys-and-additional-pages). 
 
 Below is a detailed diagram of the HTML for the already implemented Popup class to help with people looking to add their own intervneitons.
 
