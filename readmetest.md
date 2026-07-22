@@ -6,7 +6,7 @@ This platform was designed for researchers interested in studying conversational
 
 ## Our Mission
 
-Designing a website tool from scratch requires valuable time, which could be spent conducting research. To lower the technical barrier, our adapter interface allows researchers to add their own conversations and interventions to our platform. This has all the required features already completed, such as general interventions that can be edited, a user interface where participants can interact with conversations, and data collection to store actions from the study locally.
+Designing a website tool from scratch requires valuable time, which could be spent conducting research. To lower the technical barrier, our adapter interface allows researchers to add their own conversations and interventions to our platform without touching the website code. This has all the required features already completed, such as general interventions that can be customized, a user interface where participants can interact with conversations, and data collection to store participants' actions during the study locally.
 
 ---
 
