@@ -78,7 +78,7 @@ Most aspects of the platform can be configured through the settings file. Resear
 
 In addition to the conversation interface, the platform supports optional welcome, instructions, and exit pages. Researchers can customize these pages, edit questionnaires, and configure which pages are displayed throughout the study.
 
-➡️ **Read more:** [Surveys and Additional Pages](docs/surveys-and-additional-pages.md)
+➡️ **Read more:** [Surveys and Additional Pages](surveys-and-additional-pages.md)
 
 ---
 
@@ -88,7 +88,7 @@ In addition to the conversation interface, the platform supports optional welcom
 
 The platform automatically records participant interactions throughout the study, including user actions, intervention triggers, questionnaire responses, timestamps, and experimental conditions. These data are stored locally and can later be exported for analysis.
 
-➡️ **Read more:** [Data Collection](docs/data-collection.md)
+➡️ **Read more:** [Data Collection](data-collection.md)
 
 ---
 
