@@ -1,4 +1,4 @@
-#Data Collection
+# Data Collection
 
 Before the entire experiment, researchers must initialize the database by running the command: 
 
