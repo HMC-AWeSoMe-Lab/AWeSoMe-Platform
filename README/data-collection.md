@@ -1,3 +1,5 @@
+#Data Collection
+
 Before the entire experiment, researchers must initialize the database by running the command: 
 
 **python backend/database/init_db.py**
