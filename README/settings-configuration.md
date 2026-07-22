@@ -1,3 +1,5 @@
+# Setting and Configuration 
+
 Our settings file is split up into three categories: toggleable features, theme, and comment box. Theme and comment box do not need to be altered by the researcher. They are responsible for the aesthetic and functionality of the text and the comment box.
 
 The toggleable features can be switched on and off using true or false. The purposes of each of them are provided in the commented text in the figure below. All of these features are optional, meaning they can be toggled off, and the website will still function as intended. 
