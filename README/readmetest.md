@@ -48,7 +48,7 @@ Note that when writing HTML, things in quotes like "popup" or "popup-close-butto
 
 The Adapter and Interface framework allows researchers to connect any type of conversation dataset to the platform without modifying the website itself. By implementing a small number of required interface functions, researchers can use Convokit corpora, JSON files, SQL databases, or other custom conversation formats.
 
-➡️ **Read more:** [Adapter and Interface](docs/adapter-and-interface.md)
+➡️ **Read more:** [Adapter and Interface](README / adapter-and-interface.md)
 
 ---
 
