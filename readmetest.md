@@ -30,30 +30,17 @@ Designing a website tool from scratch requires valuable time, which could be spe
 
 ## Required Technical Skills
 
-While the majority of the files that researchers will edit will be in Python, small amounts of HTML and CSS are required to power new interventions or edit existing ones. Additionally, to add custom information to the introduction, instructions, or exit pages, researchers will need to edit the HTML files in the `templates` folder. More information about this can be found in the [**Surveys and Additional Pages**](#surveys-and-additional-pages) section.
+While the code you write will be mostly Python, small amounts of HTML and CSS are required to power new interventions. Below we detail a diagram of the HTML for the already implemented Popup class to help people new to web development.
 
-Below is a detailed diagram of the HTML for the already implemented Popup class to help people looking to add their own interventions.
+*Note that when writing HTML, things in quotes like `"popup"` or `"popup-close-button"` are entirely user-decided. We could have an intervention called `fooBar` with corresponding element IDs `"prof"` and `"chang"`, but that would be pretty confusing! Try to match HTML element class and id names with the corresponding intervention.*
 
-```html
-<div class="your-intervention"
-     id="your-intervention"
-     data-intervention-type="your-intervention"
-     data-event-id="YOUR-INTERVENTION">
+**However**, to maintain consistent database logging, you are required to attach `data-intervention-type` to the parent wrapper of your interventions, along with `data-event-id` wherever you desire event logging for the database.
 
-    <h2>Your header here!</h2>
+![diagram](static/images/HTMLexplan.drawio.svg)
 
-    <p>Your intervention text here!</p>
+The complete starter HTML, CSS guidance, and implementation details are available in the **Required Technical Skills** documentation.
 
-    <button
-        class="your-intervention-button"
-        id="your-intervention-button">
-        OK
-    </button>
-</div>
-```
-
-> **Note:** When writing HTML, things in quotes like `"popup"` or `"popup-close-button"` are names that can be defined by the researcher. However, to maintain consistent database logging, the website requires the parent wrapper of the intervention to include `data-intervention-type` along with `data-event-id` for event logging in the database.
-
+➡️ **Read more:** [Required Technical Skills](docs/required-technical-skills.md)
 ---
 
 <a id="adapter-and-interface"></a>
