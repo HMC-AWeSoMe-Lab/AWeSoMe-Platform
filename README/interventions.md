@@ -48,3 +48,7 @@ Real-time highlights that appear as a user drafts their reply in the text area. 
 | `trigger_event` | string | Yes | When to show highlights: `"onLoad"`, `"onClick"`, `"onText"` |
 | `highlight_func` | function | Yes | Function that generates box content (receives user text) |
 
+## Worked Example
+
+If you would like to see a worked example of how to add a highlight intervention using LLM reasoning, please click the link below.
+[**Example: LLM Highlighting Intervention**](example-LLM-highlight.md)
