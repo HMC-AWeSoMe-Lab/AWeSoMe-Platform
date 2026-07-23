@@ -12,47 +12,6 @@ The `BaseIntervention` defined two methods that should be implemented by every i
 
 
 ## Our Interventions
-Below is a table with more information about the current interventions:
-
-### Popup
-
-Modal dialog boxes that overlay the entire page, drawing immediate user attention. Popups can be triggered by page load (for welcome messages), button clicks (for confirmations or warnings), or dynamically appear with text input (for real-time feedback). They feature customizable HTML content, automatic centering, and a close button.
-
-**Parameters:**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `trigger_event` | string | Yes | When to show popup: `"onLoad"`, `"onClick"`, `"onText"` |
-| `text_func` | function | Yes | Function that generates popup content (receives user text) |
-| `button_id` | string | No | Specific button ID to trigger popup (for onClick events) |
-
-### Feedback Box
-
-Contextual information boxes that appear positioned relative to specific UI elements. Unlike popups, feedback boxes don't block page interaction and provide targeted guidance without interrupting user flow. They can be positioned above, below, left, or right of target elements with configurable widths and smart collision detection.
-
-
-**Parameters:**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `trigger_event` | string | Yes | When to show box: `"onLoad"`, `"onClick"`, `"onText"` |
-| `text_func` | function | Yes | Function that generates box content (receives user text) |
-| `button_id` | string | No | Specific button ID to trigger box (for onClick events) |
-| `parent_id` | string | Yes | HTML ID of element to position relative to |
-| `relation` | string | No | Positioning: `"above"`, `"below"`, `"left"`, `"right"`, `"inside"` (default: `"right"`) |
-| `width` | string | No | CSS width value (default: `"220px"`) |
-
-
-### Highlighting
-
-Real-time highlights that appear as a user drafts their reply in the text area. Highlights only interact with text actively being typed. 
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `trigger_event` | string | Yes | When to show highlights: `"onLoad"`, `"onClick"`, `"onText"` |
-| `highlight_func` | function | Yes | Function that generates box content (receives user text) |
-
-## Our Interventions
 
 Below is a table with more information about the current interventions:
 
