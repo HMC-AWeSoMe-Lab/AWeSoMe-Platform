@@ -6,18 +6,10 @@ The customizable intervention is the most important feature of our platform, sin
 
 ## The Base Class
 
-# Interventions
+We wrote an abstract class, BaseIntervention, for all interventions. We currently have three intervention classes inheriting from it: feedbackBoxIntervention, HighlightingIntervention, and PopupIntervention. In this way, the researchers can easily implement their interventions by writing a class inheriting from the three classes, or if they want an entirely different intervention, they can write a new class inheriting from BaseIntervention. 
 
-We wrote an abstract class, `BaseIntervention`, for all interventions. We currently have three intervention classes inheriting from it: `feedbackBoxIntervention`, `HighlightingIntervention`, and `PopupIntervention`. In this way, the researchers can easily implement their interventions by writing a class inheriting from the three classes, or if they want an entirely different intervention, they can write a new class inheriting from `BaseIntervention`.
+The BaseIntervention defined two methods that should be implemented by every intervention: update(self, convo=None, text=None, **kwargs) and get_payload(self, **kwargs). update(...) is the public entry point that app.py actually calls on every intervention, once per incoming user event (keystroke, button click, page load, etc.). Its basic function is to forward convo, text, and any other keyword arguments collected into a dictionary called **kwargs straight to get_payload(...), which contains the intervention's actual trigger logic and returns either a payload dict describing what the frontend should render, or None if the intervention shouldn't fire for this call. One special thing that update(...) does is that if the returned payload's type is "highlighting", it stamps the payload with "source_text", which is the exact draft text that this call was computed against. This additional feature is because of the LLM-calling toxicity highlighting, which is an example of LLM-related interventions that the researchers may implement. We will introduce the process of writing this intervention as a guide to help researchers implement new ones in the example section. 
 
-The `BaseIntervention` defined two methods that should be implemented by every intervention:
-
-```python
-update(self, convo=None, text=None, **kwargs)
-get_payload(self, **kwargs)
-```
-
-`update(...)` is the public entry point that `app.py` actually calls on every intervention, once per incoming user event (keystroke, button click, page load, etc.). Its basic function is to forward `convo`, `text`, and any other keyword arguments collected into a dictionary called `**kwargs` straight to `get_payload(...)`, which contains the intervention's actual trigger logic and returns either a payload dict describing what the frontend should render, or `None` if the intervention shouldn't fire for this call. One special thing that `update(...)` does is that if the returned payload's type is `"highlighting"`, it stamps the payload with `"source_text"`, which is the exact draft text that this call was computed against. This additional feature is because of the LLM-calling toxicity highlighting, which is an example of LLM-related interventions that the researchers may implement. We will introduce the process of writing this intervention as a guide to help researchers implement new ones in the example section.
 
 ## Our Interventions
 Below is a table with more information about the current interventions:
