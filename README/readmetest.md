@@ -58,7 +58,7 @@ The Adapter and Interface framework allows researchers to connect any type of co
 
 Our platform includes three built-in intervention types: popup boxes, highlighting, and feedback boxes. These interventions can be customized to support different research initiatives. Researchers can also create entirely new intervention types using the abstract base intervention class.
 
-➡️ **Read more:** [Interventions](docs/interventions.md)
+➡️ **Read more:** [Interventions](interventions.md)
 
 ---
 
