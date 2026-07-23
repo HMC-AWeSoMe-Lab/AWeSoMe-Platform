@@ -7,12 +7,9 @@ The customizable intervention is the most important feature of our platform, sin
 ## The Base Class
 
 
-
-
+## Our Interventions
 Below is a table with more information about the current interventions:
 
-
-## Our Interventions
 ### Popup
 
 Modal dialog boxes that overlay the entire page, drawing immediate user attention. Popups can be triggered by page load (for welcome messages), button clicks (for confirmations or warnings), or dynamically appear with text input (for real-time feedback). They feature customizable HTML content, automatic centering, and a close button.
