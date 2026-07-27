@@ -24,9 +24,9 @@ If the researchers want to test out this platform without designing their own us
 
 3. Finally, researchers can customize the features to design their user studies using:
 
-   * [**Settings Configuration**](#settings-configuration)
    * [**Surveys and Additional Pages**](#surveys-and-additional-pages)
    * [**Data Collection**](#data-collection)
+   * [**Settings Configuration**](#settings-configuration)
 
 ---
 
@@ -62,15 +62,6 @@ Our platform includes three built-in intervention types: popup boxes, highlighti
 
 ➡️ **Read more:** [Interventions](interventions.md)
 
----
-
-<a id="settings-configuration"></a>
-
-## Settings Configuration
-
-Most aspects of the platform can be configured through the settings file. Researchers can customize comment display, optional pages, surveys, reply behavior, timers, and other experiment settings without modifying the source code.
-
-➡️ **Read more:** [Settings Configuration](settings-configuration.md)
 
 ---
 
@@ -101,3 +92,13 @@ The platform automatically records participant interactions throughout the study
 The platform also includes several optional features, including reading timers, minimum comment lengths, configurable reply restrictions, and other settings that can be enabled depending on the needs of the study.
 
 ➡️ **Read more:** [Additional Features](additional-features.md)
+
+---
+
+<a id="settings-configuration"></a>
+
+## Settings Configuration
+
+Most aspects of the platform can be configured through the settings file. Researchers can customize comment display, optional pages, surveys, reply behavior, timers, and other experiment settings without modifying the source code.
+
+➡️ **Read more:** [Settings Configuration](settings-configuration.md)
