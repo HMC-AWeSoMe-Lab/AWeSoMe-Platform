@@ -43,6 +43,9 @@ Note that when writing HTML, things in quotes like "popup" or "popup-close-butto
 
 
 ---
+<a id="platform-structure"></a>
+## Platform Structure 
+Our platform consists of one main page, our chat page, and three optional pages, the welcome, instructions, and ending pages. These pages can be edited and customized by the researcher. 
 
 <a id="adapter-and-interface"></a>
 
