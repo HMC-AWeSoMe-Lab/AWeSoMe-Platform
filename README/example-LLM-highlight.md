@@ -1,4 +1,4 @@
-# Example: LLM-Related Intervention
+# Example: LLM-Based Toxicity Highlighting Intervention
 
 As an example, we will show you how to implement an LLM-related intervention. This intervention takes in the whole conversation, the place that the participant is replying to, and the real-time text from the reply box and highlights any word or phrase that the LLM on our server thinks is toxic or is getting the conversation more intense in orange. The LLM will also give the reason for the highlighting in the tooltip. We set the LLM to be called once at least a second has passed since the last call, and the last keystroke is space or punctuation so that the user has typed a full word. If the user stopped typing for at least one second, and the draft has changed since the last LLM call, the LLM will be called again to include and analyze the whole draft.
 
@@ -30,7 +30,7 @@ const VARIANTS = {
 };
 ```
 
-If the researcher does not want and LLM generated reason and instead a static reason like in the trigger word highlighting. They can add this above in the `label` and `body` sections.
+If the researcher does not want an LLM-generated reason and instead wants a static reason like in the trigger word highlighting, they can add this above in the `label` and `body` sections.
 
 In `ensurStyles()`, we also opted to change the color of the toxicity highlight (because we had two highlights going at once). However, if the researcher did not want to change the color of the highlight, they would be able to just replace our trigger words highlight with theirs. Below is an example of both the trigger words and toxicity highlighting:
 
