@@ -36,6 +36,8 @@ In order to change the intro and exit surveys, researchers can edit the `ending.
 
 The researcher can add their own questions based on the example provided above. If the researcher would like to add more questions, it is important that they stick to the template provided, as our website requires the class information and naming conventions.
 
+When the participants reply to the multiple-choice and free-response questions, their answers will be stored in the database. For more information about this, check out the **[Data Collection](data-collection.md)** section.
+
 All three of these pages are toggleable and can be turned on and off in the `settings.json` file. Additionally, if researchers would like to keep the pages but not the surveys, these can be toggled off as well.
 
 If researchers have generated summaries for their corpora, they can display these on the instructions page. If the researcher does not have a summary stored, the box containing the summary will automatically not be displayed. To do this, the researcher must store their summary in the metadata as `trajectory_summary`. This will then be accessed in the `instructions.html` file and displayed. If they have a summary but do not want it displayed, this can be toggled on and off in the `settings.json` file as well.
