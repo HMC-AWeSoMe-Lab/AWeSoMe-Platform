@@ -44,11 +44,11 @@ Note that when writing HTML, things in quotes like "popup" or "popup-close-butto
 
 ---
 <a id="platform-structure"></a>
-## Surveys and Additional Pages
+## Platform Structure
 
-In addition to the main conversation page, the platform includes optional welcome, instructions, and ending pages. The pages start with the welcome page which contains a survey, moves on to the instructions page which can optionally hold a conversation summary, next is the chat page, and ends with the ending page which can contain a survey. 
+The platform consists of one main conversation page and three optional pages: the welcome page, instructions page, and ending page. The pages start with the welcome page which contains a survey, moves on to the instructions page which can optionally hold a conversation summary, next is the chat page, and ends with the ending page which can contain a survey. 
 
-➡️ **Read more:** [Surveys and Additional Pages](surveys-and-additional-pages.md)
+➡️ **Read more:** [Platform Structure](platform-structure.md)
 
 <a id="adapter-and-interface"></a>
 
