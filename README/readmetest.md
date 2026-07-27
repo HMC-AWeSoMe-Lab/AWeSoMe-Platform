@@ -12,7 +12,7 @@ Designing a website tool from scratch requires valuable time, which could be spe
 
 ## How to Start
 
-If the researchers want to test out this platform without designing their own user studies, they can directly run app.py, which uses the dummy adapter, demo adapter, or convokit adapter as examples. For detailed instructions on this, go to ** [**Adapter and Interface**](adapter-and-interface.md).
+If the researchers want to test out this platform without designing their own user studies, they can directly run app.py, which uses the dummy adapter, demo adapter, or convokit adapter as examples. For detailed instructions on this, go to [**Adapter and Interface**](adapter-and-interface.md).
 
 1. First, researchers must add their own adapter file in `backend/adapters`.
 
