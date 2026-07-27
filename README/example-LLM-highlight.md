@@ -2,28 +2,23 @@
 
 As an example, we will show you how to implement an LLM-related intervention step by step. This intervention takes in the whole conversation, the place that the participant is replying to, and the real-time text from the reply box and highlights any word or phrase that the LLM on our server thinks is toxic or is getting the conversation more intense in orange. The LLM will also give the reason for the highlighting in the tooltip. We set the LLM to be called once at least a second has passed since the last call, and the last keystroke is space or punctuation so that the user has typed a full word. If the user stopped typing for at least one second, and the draft has changed since the last LLM call, the LLM will be called again to include and analyze the whole draft.
 
-## Setting up a new file to write your intervention
+## 1. Setting up a new file to write your intervention
 
 We created an additional file called `toxicityHighlight.py` (located in `backend/services`) that calls the LLM from our server. We also import `highlight.py` into this file so we can use its functions.
 
 To pass in the text to our LLM, we imported the function `call_llama()` from `calLllamaSCD.py`. This has the information for the LLM, which runs on our server. To use an LLM-powered intervention, make sure to switch this information to your server and LLM.
 
-## Writing the functions for your interventions
+## 2. Writing the functions for your interventions
 
-`toxicityHighlight.py` has a prompt that gives the LLM the conversation and the place the participant is replying to as context, and the text as participants type their comments. The LLM is then asked to flag items which it finds to be toxic and store them as a JSON object with `[{"phrase/word": "...", "reason": "..."}]`. An example of this would be `[{phrase: “You are ugly”, reason: “A direct personal insult attacking the recipient's physical appearance."}]`. This can then be used to tell the front end what should be highlighted. Additionally, the reason can be added to the tooltip. The toxicity highlighting also doesn’t overlap with the trigger word highlighting. If a word is already highlighted as a trigger word, it will not be highlighted by the LLM even if it is toxic.
+`toxicityHighlight.py` has a prompt that gives the LLM the conversation and the place the participant is replying to as context, and the text as participants type their comments. The LLM is then asked to flag items which it finds to be toxic and store them as a JSON object with `[{"phrase/word": "...", "reason": "..."}]`. An example of this would be `[{phrase: “You are ugly”, reason: “A direct personal insult attacking the recipient's physical appearance."}]`. This can then be used to tell the front end what should be highlighted. Additionally, the reason can be added to the tooltip. The toxicity highlighting also doesn’t overlap with other highlighting interventions.
 
-## Adding your intervention to the JSON files so that it can be displayed properly
+## 3. Adding your intervention to the JSON files so that it can be displayed properly
 
-We then added toxicity highlighting as a variant in `highlighting.js`. By defining highlights as `VARIANTS`, multiple highlight types can render at once. We used this to display both the trigger words and LLM-generated toxicity highlights at the same time. In the variant entry, the researcher can set a generic fallback tooltip label if the LLM's generated feedback does not work. The LLM-generated reasoning occurs on a separate path: each flagged phrase's specific reason is attached directly to its `[start, end, reason]` range in `get_payload()`, sent to the frontend as part of `highlight_indices`, and read directly by the tooltip code (`range.reason`) — which always takes priority over the variant's generic fallback text. So as long as `get_payload()` returns a reason for each range, no other change is needed to get that specific reasoning to display. If the LLM does not return a reason, the default logic the researcher selected will be displayed in its place.
+We then added toxicity highlighting as a variant in `highlighting.js`. By defining highlights as `VARIANTS`, multiple highlight types can render at once. In the variant entry, the researcher can set a generic fallback tooltip label if the LLM's generated feedback does not work. The LLM-generated reasoning occurs on a separate path: each flagged phrase's specific reason is attached directly to its `[start, end, reason]` range in `get_payload()`, sent to the frontend as part of `highlight_indices`, and read directly by the tooltip code (`range.reason`) — which always takes priority over the variant's generic fallback text. So as long as `get_payload()` returns a reason for each range, no other change is needed to get that specific reasoning to display. If the LLM does not return a reason, the default logic the researcher selected will be displayed in its place.
 
 ```javascript
 const VARIANTS = {
-   default: {
-       cssClass:   'trigger-word',
-       hoverClass: 'trigger-word-hover',
-       label:      'Trigger Word',
-       body:       'Please consider avoiding this word'
-   },
+   ......
    toxicity: {
        cssClass:   'toxicity-word',
        hoverClass: 'toxicity-word-hover',
@@ -38,13 +33,13 @@ const VARIANTS = {
 
 If the researcher does not want an LLM-generated reason and instead wants a static reason like in the trigger word highlighting, they can add this above in the `label` and `body` sections.
 
-## Changing the appearance of your interventions (highlighting colors, for example) in the CSS files
+## 4. Changing the appearance of your interventions (highlighting colors, for example) in the CSS files
 
-In `ensurStyles()`, we also opted to change the color of the toxicity highlight (because we had two highlights going at once). However, if the researcher did not want to change the color of the highlight, they would be able to just replace our trigger words highlight with theirs. Below is an example of both the trigger words and toxicity highlighting:
+In `ensurStyles()`, we can also choose the color of the toxicity highlight. If the researcher wants to change the color of their highlight, they would be able to just do it here. Below is an example of the toxicity highlighting:
 
 ![diagram](two_highlight_screenshot.svg)
 
-As you can see, both can be displayed at the same time. We also asked the LLM to avoid overlapping the two kinds of highlights by giving it the Trigger Words list and asking it to not flag these words. The two colors avoid user confusion by showing that they are highlighting for different reasons. Below is the code responsible for the highlighting colors in `ensurStyles()`.
+As you can see, the toxocity highlight is displayed on the screenshot. We also asked the LLM to avoid overlapping the two kinds of highlights by giving it the Trigger Words list and asking it to not flag these words. The two colors avoid user confusion by showing that they are highlighting for different reasons. Below is the code responsible for the highlighting colors in `ensurStyles()`.
 
 ```css
 .highlights-container .trigger-word {
@@ -63,11 +58,11 @@ As you can see, both can be displayed at the same time. We also asked the LLM to
 }
 ```
 
-## Combining other intervention types
+## 5. Combining other intervention types
 
 Moreover, we combined the pop-up intervention in `toxicityHighlight.py`. When the participant tries to submit a comment with LLM-highlighted content in it, the pop-up window will show all the reasons that the LLM generated in the tooltips, and ask the participant to consider revising their post. We implemented this by importing the `PopupIntervention` to `toxicityHighlight.py` and writing a class inheriting from it. Please note that this pop-up box replaced the trigger-words pop-up box, which means that when there are both kinds of highlighted content in the post, the pop-up box will show the LLM-generated reasons instead of the trigger-words advice. All formats of the pop-up box follow the default format, so `toxicityHighlight.py` is the only place where we wrote code about this pop-up box.
 
-## Implementing your intervention in app.py
+## 6. Implementing your intervention in app.py
 
 Finally, once the specific intervention has been created, we added it as an object in the Intervention section of `app.py`. If the researchers want to quickly disable this intervention, they can just comment out this object here.
 
