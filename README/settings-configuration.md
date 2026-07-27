@@ -36,7 +36,7 @@ Configure conversation display settings in `static/settings.json`:
     "displayScore": true,   // upvotes - downvotes, if the corpus/conversation includes such information
     "displayCancel": true,
     "submitButtonText": "Submit",
-    "anon_users": "z"
+    "anon_users": true/false    // Turn on/off the speaker name anonymization. If true, the speakers have names like "Speaker 1"; if false, the speakers have their real names as in the corpora.
   }
 }
 ```
