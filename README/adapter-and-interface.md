@@ -1,6 +1,5 @@
 # Adapter and Interface
-
-
+Our adapter and interface work together to allow researchers to add in their own conversational data without having to edit other portions of the existing website code. This lowers the technical barrier of entry and allows for researchers to spend less time creating the website. To assist with this, our interface acts as an abstract class and the adapters inherit the functions from it. This structure allows for any type of conversation to be displayed.  Below is a diagram of the interface and adapter to show how they interact with one another: 
 
 ![diagram](AwesomePlatformDiagram.svg)
 
@@ -23,9 +22,9 @@ get_utterance(self, convo_id: str)
 get_speaker(self, convo_id: str)
 ```
 
-where we added the dictionary, `def load(self)` to build the speaker, utterance, and conversation objects, `get_conversation_ids(self)` to get the conversation ids, `pick_conversation(self)` to define how the conversation is selected (we only have one conversation so it selects this one everytime, but we have another corpus with multiple conversations and we chose to do this randomly), and `get_conversation(self, convo_id: str)`, `get_utterance(self, convo_id: str)`, `get_speaker(self, convo_id: str)` to load the conversation, utterance, and speaker.
+where we added the dictionary, `def load(self)` to build the speaker, utterance, and conversation objects, `get_conversation_ids(self)` to get the conversation ids, `pick_conversation(self)` to define how the conversation is selected (we only have one conversation so it selects this one every time, but we have another corpus with multiple conversations and we chose to do this randomly), and `get_conversation(self, convo_id: str)`, `get_utterance(self, convo_id: str)`, `get_speaker(self, convo_id: str)` to load the conversation, utterance, and speaker.
 
-If you would like to see more examples of how the interface and adapters are implemented, please check the `convokit_adapter` and the `demo_adapter` in `backend/adapters`. Both `dummy_adapter` and `demo_adapter` are loaded through a Python dictionary, while `convokit_adapter` uses convokit. The adapter and interface allow for any type of conversation to be supported as long as the researchers provide a load method.
+If you would like to see more examples of how the interface and adapters are implemented, please check the `convokit_adapter` and the `demo_adapter` in `backend/adapters`. Both `dummy_adapter` and `demo_adapter` are loaded through a Python dictionary, while `convokit_adapter` uses Convokit. The adapter and interface allow for any type of conversation to be supported as long as the researchers provide a load method.
 
 ### Using an adapter
 
@@ -36,3 +35,6 @@ from backend.adapters.test_data import DUMMY_CONVERSATION
 active_adapter = DummyAdapter(DUMMY_CONVERSATION)
 active_adapter.load()
 ```
+Researchers **must** follow the formatting above or else the adapter will not work. 
+
+Researchers must first start by importing the adapter. If the conversation is already loaded like in our Convokit example, researchers may skip the loading conversation step in line 2. Next, they must set the active adapter to their adapter. This naming is very important as `active_adapter` is the variable which represents the adapter in the code. In this example the active adapter is `DummyAdapter` and the conversation being loaded in this is `DUMMY_CONVERSATION`. The last step is to load the active adapter. 
