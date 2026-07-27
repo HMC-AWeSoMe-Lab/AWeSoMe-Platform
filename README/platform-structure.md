@@ -2,7 +2,7 @@
 
 The order in which the pages appear and how users navigate through them is shown in the figure below.
 
-![Platform Structure](structure.svg)
+![Platform Structure](structure1.svg)
 
 Our website consists of three optional pages—the welcome page, instructions page, and ending page—and one required page, the chat page. Each page serves a different purpose and can be customized by the researcher. To learn more about each page and its features, continue reading.
 
