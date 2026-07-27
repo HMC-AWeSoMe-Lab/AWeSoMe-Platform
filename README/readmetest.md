@@ -46,7 +46,7 @@ Note that when writing HTML, things in quotes like "popup" or "popup-close-butto
 <a id="platform-structure"></a>
 ## Surveys and Additional Pages
 
-Our platform consists of one main page, our chat page, and three optional pages, the welcome, instructions, and ending pages. These pages can be edited and customized by the researcher.
+In addition to the main conversation page, the platform includes optional welcome, instructions, and ending pages. The pages start with the welcome page which contains a survey, moves on to the instructions page which can optionally hold a conversation summary, next is the chat page, and ends with the ending page which can contain a survey. 
 
 ➡️ **Read more:** [Surveys and Additional Pages](surveys-and-additional-pages.md)
 
