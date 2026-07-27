@@ -39,16 +39,9 @@ In `ensurStyles()`, we can also choose the color of the toxicity highlight. If t
 
 ![diagram](two_highlight_screenshot.svg)
 
-As you can see, the toxocity highlight is displayed on the screenshot. We also asked the LLM to avoid overlapping the two kinds of highlights by giving it the Trigger Words list and asking it to not flag these words. The two colors avoid user confusion by showing that they are highlighting for different reasons. Below is the code responsible for the highlighting colors in `ensurStyles()`.
+As you can see, the toxicity highlight is displayed on the screenshot. We also asked the LLM to avoid overlapping different kinds of highlights. If the researchers implement multiple highlighting interventions at the same time, different colors avoid user confusion by showing that they are highlighting for different reasons. Below is the code responsible for the highlighting colors in `ensurStyles()`.
 
 ```css
-.highlights-container .trigger-word {
-    background-image: repeating-linear-gradient(to right, #e53935 0, #e53935 4px);  /* red */
-}
-.highlights-container .trigger-word.hovered {
-    background-color: rgba(229, 57, 53, 0.18);
-    ...
-}
 .highlights-container .toxicity-word {
     background-image: repeating-linear-gradient(to right, #fb8c00 0, #fb8c00 4px);  /* orange */
 }
