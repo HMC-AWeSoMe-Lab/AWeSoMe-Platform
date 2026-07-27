@@ -91,15 +91,6 @@ The platform automatically records participant interactions throughout the study
 
 ---
 
-<a id="additional-features"></a>
-
-## Additional Features
-
-The platform also includes several optional features, including reading timers, minimum comment lengths, configurable reply restrictions, and other settings that can be enabled depending on the needs of the study.
-
-➡️ **Read more:** [Additional Features](additional-features.md)
-
----
 
 <a id="settings-configuration"></a>
 
