@@ -1,6 +1,6 @@
 # Surveys and Additional Pages
 
-In order to edit the information displayed on the introduction, instructions, or exit pages, the researcher must edit the HTML files from the `templates` folder. The files `welcome.html` and `instructions.html` can be edited to add text to the introduction and instructions. In order to do this, all the researcher must do is change the text in the content area. An example is provided below:
+In order to edit the information displayed on the introduction, instructions, or ending pages, the researcher must edit the HTML files from the `templates` folder. The files `welcome.html` and `instructions.html` can be edited to add text to the introduction and instructions. In order to do this, all the researcher must do is change the text in the content area. An example is provided below:
 
 ```html
 {% block body %}
@@ -8,11 +8,11 @@ In order to edit the information displayed on the introduction, instructions, or
 <h1 class="welcome-title">Welcome!</h1>
 <div class="welcome-section">
   <h2>Introduction</h2>
-  <div class="content-area"> Hi, welcome to our project! Please be aware that the displayed conversation might include concerning contents. If you feel good to proceed, please check 'I consent'. </div> <!-- Change this text!! -->
+  <div class="content-area"> Hi, welcome to our project! Please be aware that the displayed conversation might include concerning content. If you feel good to proceed, please check 'I consent'. </div> <!-- Change this text!! -->
 </div>
 ```
 
-In order to change the intro and exit surveys. Researchers can edit the `ending.html` and `welcome.html` files. If the researcher would like to create more questions they can create them based off the example below.
+In order to change the intro and exit surveys, researchers can edit the `ending.html` and `welcome.html` files. If the researcher would like to create more questions, they can create them based on the example below.
 
 ```html
 {% if entry_questionnaire_enabled %}
@@ -36,6 +36,6 @@ If the researcher would like to keep the same style (multiple choice), they can 
 
 All three of these pages are toggleable and can be turned on and off in the `settings.json` file. Additionally, if researchers would like to keep the pages and not the surveys, these can be toggled off as well.
 
-If researchers have generated summaries for their corpora, they can display these on the instructions page. If the researcher does not have a summary stored, the box containing the summary will automatically not be displayed. To change this, the researcher must store their summary in the meta data as `trajectory_summary` this will then be accessed in the `instructions.html` file to be displayed. If they have a summary, but do not want it displayed, this can be toggled on and off in the `settings.json` file as well.
+If researchers have generated summaries for their corpora, they can display these on the instructions page. If the researcher does not have a summary stored, the box containing the summary will automatically not be displayed. To change this, the researcher must store their summary in the metadata as `trajectory_summary`. This will then be accessed in the `instructions.html` file to be displayed. If they have a summary, but do not want it displayed, this can be toggled on and off in the `settings.json` file as well.
 
 To see what settings to turn on and off for each page and survey, check the **[Settings Configuration](settings-configuration.md)** section.
