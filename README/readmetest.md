@@ -9,13 +9,6 @@ This platform was designed for researchers interested in studying conversational
 Designing a website tool from scratch requires valuable time, which could be spent conducting research. To lower the technical barrier, our adapter interface allows researchers to add their own conversations and interventions to our platform without touching the code that sets up the website, such as the HTML files of the pages. The platform has all the required features already completed, such as general interventions that can be customized, a user interface where participants can interact with conversations, and data collection to store participants' actions during the study locally.
 
 ---
-## Platform Structure
-
-The platform consists of one main conversation page and three optional pages: the welcome page, instructions page, and ending page. The pages start with the welcome page which contains a survey, moves on to the instructions page which can optionally hold a conversation summary, next is the chat page, and ends with the ending page which can contain a survey. 
-
-➡️ **Read more:** [Platform Structure](platform-structure.md)
-
----
 
 ## How to Start
 
@@ -50,6 +43,13 @@ Note that when writing HTML, things in quotes like "popup" or "popup-close-butto
 
 
 ---
+<a id="platform-structure"></a>
+## Platform Structure
+
+The platform consists of one main conversation page and three optional pages: the welcome page, instructions page, and ending page. The pages start with the welcome page which contains a survey, moves on to the instructions page which can optionally hold a conversation summary, next is the chat page, and ends with the ending page which can contain a survey. 
+
+➡️ **Read more:** [Platform Structure](platform-structure.md)
+
 <a id="adapter-and-interface"></a>
 
 ## Adapter and Interface
