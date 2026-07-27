@@ -113,6 +113,26 @@
  }
 
 
+ .free-response-box {
+   width: 100%;
+   min-height: 100px;
+   padding: 0.7rem 0.9rem;
+   border: 1px solid #ccd3db;
+   border-radius: 8px;
+   font-family: 'Lato', sans-serif;
+   font-size: 0.95rem;
+   color: #333;
+   resize: vertical;
+   box-sizing: border-box;
+ }
+
+
+ .free-response-box:focus {
+   outline: none;
+   border-color: #2563eb;
+ }
+
+
  .go-btn {
    display: block;
    width: 100%;
@@ -167,6 +187,8 @@
          <input type="radio" name="eq1" value="2"> No
        </label>
      </div>
+     <p class="question-text" style="margin-top: 1.25rem;">Q2: Please briefly describe the toxic behaviors in the conversation you just saw. If you haven't encountered any, please write N/A.</p>
+     <textarea class="free-response-box" name="eq2" id="eq2" placeholder="Type your response here..."></textarea>
    </div>
  </div>
  {% endif %}
@@ -186,12 +208,14 @@
    submitBtn.disabled = false;
    submitBtn.classList.add('enabled');
  } else {
+   const eq2Box = document.getElementById('eq2');
    function checkAllAnswered() {
      const names = [...new Set([...radios].map(r => r.name))];
      const allAnswered = names.every(name =>
        document.querySelector(`input[name="${name}"]:checked`)
      );
-     if (allAnswered) {
+     const q2Answered = eq2Box ? eq2Box.value.trim().length > 0 : true;
+     if (allAnswered && q2Answered) {
        submitBtn.disabled = false;
        submitBtn.classList.add('enabled');
      } else {
@@ -200,6 +224,9 @@
      }
    }
    radios.forEach(r => r.addEventListener('change', checkAllAnswered));
+   if (eq2Box) {
+     eq2Box.addEventListener('input', checkAllAnswered);
+   }
  }
 
 
@@ -212,6 +239,10 @@
      document.querySelectorAll('input[type="radio"]:checked').forEach(r => {
        responses[r.name] = r.value;
      });
+     const eq2Box = document.getElementById('eq2');
+     if (eq2Box) {
+       responses['eq2'] = eq2Box.value.trim();
+     }
 
 
      try {

@@ -1,14 +1,14 @@
 {
   "toggleable_features": {
-    "readingTimerEnabled": false,
-    "minCommentLength": 0,
+    "readingTimerEnabled": true,
+    "minCommentLength": 10,
     "replyToAnywhere": true,
-    "instructionPageEnabled": false,
-    "trajectorySummaryBoxEnabled": false,
-    "welcomePageEnabled": false,
-    "entryQuestionnaireEnabled": false,
-    "exitPageEnabled": false,
-    "exitQuestionnaireEnabled": false
+    "instructionPageEnabled": true,
+    "trajectorySummaryBoxEnabled": true,
+    "welcomePageEnabled": true,
+    "entryQuestionnaireEnabled": true,
+    "exitPageEnabled": true,
+    "exitQuestionnaireEnabled": true
   },
 
   "theme": {
@@ -26,6 +26,6 @@
     "displayScore": true,
     "displayCancel": true,
     "submitButtonText": "Submit",
-    "anon_users": "z"
+    "anon_users": true
   }
 }

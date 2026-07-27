@@ -82,6 +82,22 @@
    cursor: pointer;
    flex-shrink: 0;
  }
+ .free-response-box {
+   width: 100%;
+   min-height: 100px;
+   padding: 0.7rem 0.9rem;
+   border: 1px solid #ccd3db;
+   border-radius: 8px;
+   font-family: 'Lato', sans-serif;
+   font-size: 0.95rem;
+   color: #333;
+   resize: vertical;
+   box-sizing: border-box;
+ }
+ .free-response-box:focus {
+   outline: none;
+   border-color: #2563eb;
+ }
  .consent-row {
    display: flex;
    align-items: center;
@@ -151,6 +167,8 @@
          <input type="radio" name="q1" value="2"> No
        </label>
      </div>
+     <p class="question-text" style="margin-top: 1.25rem;">Q2: Please briefly describe the toxic conversation you met before. If you haven't encountered any, please write N/A.</p>
+     <textarea class="free-response-box" name="q2" id="q2" placeholder="Type your response here..."></textarea>
    </div>
  </div>
  {% endif %}
@@ -192,6 +210,7 @@
  // Questionnaire save/restore only runs when the questionnaire is shown
  if (entryQuestionnaireEnabled) {
    const q1Radios = document.querySelectorAll('input[name="q1"]');
+   const q2Box = document.getElementById('q2');
 
 
    const savedQ1 = sessionStorage.getItem('welcome_q1');
@@ -200,10 +219,21 @@
    }
 
 
+   const savedQ2 = sessionStorage.getItem('welcome_q2');
+   if (savedQ2) {
+     q2Box.value = savedQ2;
+   }
+
+
    q1Radios.forEach(r => {
      r.addEventListener('change', function () {
        sessionStorage.setItem('welcome_q1', this.value);
      });
+   });
+
+
+   q2Box.addEventListener('input', function () {
+     sessionStorage.setItem('welcome_q2', this.value);
    });
  }
 
@@ -217,6 +247,10 @@
      document.querySelectorAll('input[type="radio"]:checked').forEach(r => {
        responses[r.name] = r.value;
      });
+     const q2Box = document.getElementById('q2');
+     if (q2Box) {
+       responses['q2'] = q2Box.value.trim();
+     }
 
 
      try {

@@ -64,8 +64,6 @@ from backend.services.callLlamaSCD import call_llama
 
 
 # ---------------------------------------------------------------------------
-# PROMPT — left for you to fill in.
-# ---------------------------------------------------------------------------
 # This is the system prompt sent to the LLM. It should instruct the model to:
 #   - judge the toxicity of the draft text using the conversation as context
 #   - decide whether the draft itself is toxic, or risks raising the
@@ -547,7 +545,7 @@ _last_call_time_by_convo = {}   # convo_id -> time.monotonic() of last LLM call
 _last_text_by_convo = {}        # convo_id -> draft text as of the last LLM call
 _reason_ledger_by_convo = {}    # convo_id -> {lowercased phrase: reason}
 
-MIN_LLM_CALL_INTERVAL_SECONDS = 1.0
+MIN_LLM_CALL_INTERVAL_SECONDS = 0.5
 
 # Standard ASCII punctuation/symbols — mirrors the set the frontend treats
 # as "qualifying" characters for its own display-side bookkeeping.
