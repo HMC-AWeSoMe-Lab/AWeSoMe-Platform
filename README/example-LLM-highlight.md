@@ -37,7 +37,7 @@ If the researcher does not want an LLM-generated reason and instead wants a stat
 
 In `ensurStyles()`, we can also choose the color of the toxicity highlight. If the researcher wants to change the color of their highlight, they would be able to just do it here. Below is an example of the toxicity highlighting:
 
-![diagram](two_highlight_screenshot.svg)
+![diagram](example-highlight.svg)
 
 As you can see, the toxicity highlight is displayed on the screenshot. We also asked the LLM to avoid overlapping different kinds of highlights. If the researchers implement multiple highlighting interventions at the same time, different colors avoid user confusion by showing that they are highlighting for different reasons. Below is the code responsible for the highlighting colors in `ensurStyles()`.
 
