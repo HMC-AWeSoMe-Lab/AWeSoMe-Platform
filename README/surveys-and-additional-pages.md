@@ -1,5 +1,6 @@
 # Surveys and Additional Pages
 
+## Additional Pages
 In order to edit the information displayed on the introduction, instructions, or ending pages, the researcher must edit the HTML files from the `templates` folder. The files `welcome.html` and `instructions.html` can be edited to add text to the introduction and instructions. In order to do this, all the researcher must do is change the text in the content area. It is important that researchers maintain the existing naming and classes, as our website requires this information for the pages to be displayed properly. When editing this page, it is easiest to just change the text. However, if researchers want to add something, make sure to keep this naming convention. An example is provided below:
 
 ```html
@@ -11,6 +12,8 @@ In order to edit the information displayed on the introduction, instructions, or
   <div class="content-area"> Hi, welcome to our project! Please be aware that the displayed conversation might include concerning content. If you feel good to proceed, please check 'I consent'. </div> <!-- Change this text!! -->
 </div>
 ```
+
+## Surveys
 
 In order to change the intro and exit surveys, researchers can edit the `ending.html` and `welcome.html` files. If the researcher would like to create more questions, they can create them based on the example below.
 
