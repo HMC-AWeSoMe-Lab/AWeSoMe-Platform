@@ -24,6 +24,7 @@ If the researchers want to test out this platform without designing their own us
 
 3. Finally, researchers can customize the features to design their user studies using:
 
+   * [**Platform Structure**](#platform-structure)
    * [**Surveys and Additional Pages**](#surveys-and-additional-pages)
    * [**Data Collection**](#data-collection)
    * [**Settings Configuration**](#settings-configuration)
@@ -32,14 +33,7 @@ If the researchers want to test out this platform without designing their own us
 
 ## Required Technical Skills
 
-While the majority of the files that researchers will edit will be in Python, small amounts of HTML and CSS are required to add new interventions or edit existing ones. Additionally, to add custom information to the introduction, instructions, or exit pages, researchers will need to edit the HTML files in the templates folder. More information about this can be found in the Surveys and Additional Pages [**Surveys and Additional Pages**](#surveys-and-additional-pages). 
-
-Below is a detailed diagram of the HTML for the already implemented Popup class to help people looking to add their own interventions.
-
-![diagram](../static/images/HTMLexplan.drawio.svg)
-
-
-Note that when writing HTML, things in quotes like "popup" or "popup-close-button" are names that can be defined by the researcher. However, in order to maintain consistent database logging, the website requires the parent wrapper of the intervention to be attached to the data_intervention_type along with data_event_id for event logging in the database.
+While the majority of the files that researchers will edit will be in Python, small amounts of HTML and CSS are required to add new interventions or edit existing ones. Additionally, to add custom information to the introduction, instructions, or exit pages, researchers will need to edit the HTML files in the templates folder. More information about this can be found in the [**Surveys and Additional Pages**](#surveys-and-additional-pages) and the [**Interventions**](#interventions). 
 
 
 ---
