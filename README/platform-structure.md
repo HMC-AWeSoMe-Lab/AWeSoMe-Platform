@@ -35,16 +35,17 @@ In order for the researcher to turn on these optional features, they must set th
 To learn more about these optional features, see the **[Settings Configuration](settings-configuration.md)** section.
 
 ## Additional Pages 
+The welcome, instructions, and ending pages are all optional. These are not required and can be toggled off in the settings file. For more information about this please go to the Settings Configuration  **[Settings Configuration](settings-configuration.md)**. 
 
 ### Welcome Page
 
-When the researcher first loads our platform, they will see a welcome page. This consists of introduction, survey, and consent sections. Each section is customizable in `welcome.html`. Researchers can add their own custom introduction and survey. They can also optionally toggle off the survey in the `settings.json` file if they do not want it displayed on the page. Information about this can be found in the **[Settings Configuration](settings-configuration.md)** section. For more information about how to edit this page, please see the **[Surveys and Additional Pages](surveys-and-additional-pages.md)** section.
+When the researcher first loads our platform, they will see a welcome page. This consists of introduction, survey, and consent sections. Each section is customizable in `welcome.html`. Researchers can add their own custom introduction and survey. For more information about how to edit this page, please see the **[Surveys and Additional Pages](surveys-and-additional-pages.md)** section.
 
 ![Welcome Page](welcome.svg)
 
 ### Instructions Page
 
-The instructions page shows instructions and an optional summary section. The instructions section is where researchers can add more specific information about what they want the users to do during the study. The summary section can be used to display a summary of the conversation if the researcher has one stored in the metadata. If there is no summary stored, this section will not appear. If they have a summary stored but do not want it displayed, they can toggle this off in the settings. Information about this can be found in the **[Settings Configuration](settings-configuration.md)** section. For more information about how to edit this page, please see the **[Surveys and Additional Pages](surveys-and-additional-pages.md)** section.
+The instructions page shows instructions and an optional summary section. The instructions section is where researchers can add more specific information about what they want the users to do during the study. The summary section can be used to display a summary of the conversation if the researcher has one stored in the metadata. If there is no summary stored, this section will not appear. If they have a summary stored but do not want it displayed, they can toggle this off in the settings. More information about this can be found in the **[Settings Configuration](settings-configuration.md)** section. For more information about how to edit this page, please see the **[Surveys and Additional Pages](surveys-and-additional-pages.md)** section.
 
 ![Instructions Page](instructions.svg)
 
