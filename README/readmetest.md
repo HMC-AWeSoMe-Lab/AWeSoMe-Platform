@@ -4,6 +4,8 @@
 
 Designing a website tool from scratch requires valuable time, which could be spent conducting research. To lower the technical barrier, our adapter interface allows researchers to add their own conversations and interventions to our platform without touching the code that sets up the website, such as the HTML files of the pages. The platform has all the required features already completed, such as general interventions that can be customized, a user interface where participants can interact with conversations, and data collection to store participants' actions during the study locally.
 
+![Chat Page](chat.svg)
+
 ---
 
 This platform was designed for researchers interested in studying conversational interventions. It has an abstract interface, which decreases the coding burden for researchers (more information in [**Adapter and Interface**](#adapter-and-interface)). Our website also supports three popular general interventions: a pop-up box, highlighting, and a feedback box, which can be easily implemented to fit most research needs. Any additional interventions can be added by the researcher (more information in [**Interventions**](#interventions)). All actions taken by participants during the study are recorded and stored through our data collection system, which can later be accessed by researchers (more information in [**Data Collection**](#data-collection)).
