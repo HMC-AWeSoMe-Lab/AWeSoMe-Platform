@@ -4,7 +4,7 @@
 
 Designing a website tool from scratch requires valuable time, which could be spent conducting research. To lower the technical barrier, our adapter interface allows researchers to add their own conversations and interventions to our platform without touching the code that sets up the website, such as the HTML files of the pages. The platform has all the required features already completed, such as general interventions that can be customized, a user interface where participants can interact with conversations, and data collection to store participants' actions during the study locally.
 
-![Chat Page](chat.svg)
+![Chat Page](docs/chat.svg)
 
 ---
 
@@ -14,7 +14,7 @@ This platform was designed for researchers interested in studying conversational
 
 ## How to Start
 
-If the researchers want to test out this platform without designing their own user studies, they can directly run app.py, which uses the dummy adapter, demo adapter, or convokit adapter as examples. For detailed instructions on this, go to [**Adapter and Interface**](adapter-and-interface.md).
+If the researchers want to test out this platform without designing their own user studies, they can directly run app.py, which uses the dummy adapter, demo adapter, or convokit adapter as examples. For detailed instructions on this, go to [**Adapter and Interface**](docs/adapter-and-interface.md).
 
 1. First, researchers must add their own adapter file in `backend/adapters`.
 
@@ -44,7 +44,7 @@ While the majority of the files that researchers will edit will be in Python, sm
 
 The platform consists of one main conversation page and three optional pages: the welcome page, instructions page, and ending page. The pages start with the welcome page which contains a survey, moves on to the instructions page which can optionally hold a conversation summary, next is the chat page, and ends with the ending page which can contain a survey. 
 
-➡️ **Read more:** [Platform Structure](platform-structure.md)
+➡️ **Read more:** [Platform Structure](docs/platform-structure.md)
 
 <a id="adapter-and-interface"></a>
 
@@ -52,7 +52,7 @@ The platform consists of one main conversation page and three optional pages: th
 
 The Adapter and Interface framework allows researchers to connect any type of conversation dataset to the platform without modifying the website itself. By implementing a small number of required interface functions, researchers can use Convokit corpora, JSON files, SQL databases, or other custom conversation formats.
 
-➡️ **Read more:** [**Adapter and Interface**](adapter-and-interface.md)
+➡️ **Read more:** [**Adapter and Interface**](docs/adapter-and-interface.md)
 
 ---
 
@@ -62,7 +62,7 @@ The Adapter and Interface framework allows researchers to connect any type of co
 
 Our platform includes three built-in intervention types: popup boxes, highlighting, and feedback boxes. These interventions can be customized to support different research initiatives. Researchers can also create entirely new intervention types using the abstract base intervention class.
 
-➡️ **Read more:** [Interventions](interventions.md)
+➡️ **Read more:** [Interventions](docs/interventions.md)
 
 
 ---
@@ -73,7 +73,7 @@ Our platform includes three built-in intervention types: popup boxes, highlighti
 
 In addition to the conversation interface, the platform supports optional welcome, instructions, and exit pages. Researchers can customize these pages, edit questionnaires, and configure which pages are displayed throughout the study.
 
-➡️ **Read more:** [Surveys and Additional Pages](surveys-and-additional-pages.md)
+➡️ **Read more:** [Surveys and Additional Pages](docs/surveys-and-additional-pages.md)
 
 ---
 
@@ -83,7 +83,7 @@ In addition to the conversation interface, the platform supports optional welcom
 
 The platform automatically records participant interactions throughout the study, including user actions, intervention triggers, questionnaire responses, timestamps, and experimental conditions. These data are stored locally and can later be exported for analysis.
 
-➡️ **Read more:** [Data Collection](data-collection.md)
+➡️ **Read more:** [Data Collection](docs/data-collection.md)
 
 ---
 
@@ -94,4 +94,4 @@ The platform automatically records participant interactions throughout the study
 
 Most aspects of the platform can be configured through the settings file. Researchers can customize comment display, optional pages, surveys, reply behavior, timers, and other experiment settings without modifying the source code.
 
-➡️ **Read more:** [Settings Configuration](settings-configuration.md)
+➡️ **Read more:** [Settings Configuration](docs/settings-configuration.md)
