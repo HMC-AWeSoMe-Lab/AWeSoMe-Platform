@@ -1,13 +1,16 @@
 # Data Collection
 
+Usually, the researchers conduct user studies to analyze the difference in participants' behaviors. This can help them see how an intervention works and what influence it has on participants. As a result, our platform collects data about user actions and triggered interventions to help researchers analyze them.
+
 Before the entire experiment, researchers must initialize the database by running the command: 
 
 **python backend/database/init_db.py**
 
 Initializing the database after the beginning of the experiment will lead to data loss. 
 
-Data is automatically collected and stored as SQL tables during the experiment. There are five tables in total: POST, latest_id, trial_mode, questionnaire_response, and triggered_interventions. The researchers can easily export these tables by running export_data.py. All data will be stored locally on the researchers' server by default. The types of data collected and corresponding explanations are listed below.
+Data is automatically collected and stored as SQL tables during the experiment. There are five tables in total: POST, latest_id, trial_mode, questionnaire_response, and triggered_interventions. All data will be stored locally on the researchers' server by default. The types of data collected and corresponding explanations are listed below.
 
+The researchers can easily export these tables by running export_data.py. 
 
 ## Table 1: POST
 
