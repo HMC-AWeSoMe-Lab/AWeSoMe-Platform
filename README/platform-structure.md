@@ -8,6 +8,8 @@ Our website consists of three optional pages—the welcome page, instructions pa
 
 ## Main Page 
 
+The main purpose of this website is to facilitate research surrounding conversational interventions. Because of this, our main page is the chat page. It allows researchers to display their own conversational data and for participants to interact with it. 
+
 ### Chat Page
 
 The goal of this page is to display the researcher's conversational data and replicate an online social media environment. This is the most important page on our website. It allows users to reply to the conversation and interact with interventions. To learn more about implementing and customizing interventions, see the **[Interventions](interventions.md)** section. Researchers can load their own conversations through the adapter and interface. To learn more about connecting your own conversational data to the platform, see the **[Adapter and Interface](adapter-and-interface.md)** section.
