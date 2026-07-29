@@ -7,7 +7,7 @@ The order in which the pages appear and how users navigate through them is shown
 Our website consists of three optional pages—the welcome page, instructions page, and ending page—and one required page, the chat page. Each page serves a different purpose and can be customized by the researcher. To learn more about each page and its features, continue reading.
 
 ## Main Page 
----
+
 ### Chat Page
 
 The goal of this page is to display the researcher's conversational data and replicate an online social media environment. This is the most important page on our website. It allows users to reply to the conversation and interact with interventions. To learn more about implementing and customizing interventions, see the **[Interventions](interventions.md)** section. Researchers can load their own conversations through the adapter and interface. To learn more about connecting your own conversational data to the platform, see the **[Adapter and Interface](adapter-and-interface.md)** section.
@@ -33,7 +33,7 @@ In order for the researcher to turn on these optional features, they must set th
 To learn more about these optional features, see the **[Settings Configuration](settings-configuration.md)** section.
 
 ## Additional Pages 
---- 
+
 ### Welcome Page
 
 When the researcher first loads our platform, they will see a welcome page. This consists of introduction, survey, and consent sections. Each section is customizable in `welcome.html`. Researchers can add their own custom introduction and survey. They can also optionally toggle off the survey in the `settings.json` file if they do not want it displayed on the page. Information about this can be found in the **[Settings Configuration](settings-configuration.md)** section. For more information about how to edit this page, please see the **[Surveys and Additional Pages](surveys-and-additional-pages.md)** section.
