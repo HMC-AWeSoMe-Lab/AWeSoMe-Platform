@@ -1,7 +1,7 @@
 # Adapter and Interface
 Our adapter and interface work together to allow researchers to add in their own conversational data without having to edit other portions of the existing website code. This lowers the technical barrier of entry and allows for researchers to spend less time creating the website. To assist with this, our interface acts as an abstract class and the adapters inherit the functions from it. This structure allows for any type of conversation to be displayed.  Below is a diagram of the interface and adapter to show how they interact with one another: 
 
-![diagram](AwesomePlatformDiagram.svg)
+![diagram](AwesomePlatform.svg)
 
 ## Interface
 The interface contains an abstract class with the required functions: `load()`, `get_speaker()`, `get_conversation()`, `get_conversation_ids()`, and `get_utterance()`. These functions will be inherited by adapter files, which need to be written by the researchers, because the website is unable to run without a conversation, information about the speakers from the conversation, and the text (utterance). The three classes, `conversation`, `speaker`, and `utterance`, set the basic structure and information needed to make the platform run properly. All classes have their required information, such as `id`, and optional information, which can be added as a metadata dictionary.
