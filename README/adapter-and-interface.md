@@ -28,13 +28,37 @@ If you would like to see more examples of how the interface and adapters are imp
 
 ### Using an adapter
 
-Finally, once the adapter is written, researchers can load it through the `config.py` file. Here is an example of how to do this below: 
+Finally, once the adapter is written, researchers can load it through the `config.py` file. 
+
+The first step is to load the adapter. In order to do this, import the adapter class you wrote from your adapter file. Below is an example:
+```python
+from backend.adapters.dummy_adapter import DummyAdapter
+```
+In this example the adapter file is `dummy_adapter` and the class is `DummyAdapter`
+
+Next, if your conversation needs to be separately loaded from another file, you can do this here. If your conversation is not stored in a file, you can skip this step. Below is an example: 
+
+```python
+from backend.adapters.test_data import DUMMY_CONVERSATION
+```
+In this example, the file is `test_data` and the file is `DUMMY_CONVERSATION`
+
+Following this you need to set your adapter as the active adapter. We use this so that the adapters can be easily switched. You **must** use the variable `active_adapter`. Below is an example:
+
+```python
+active_adapter = DummyAdapter(DUMMY_CONVERSATION)
+```
+The adapter being used here is `DummyAdapter` and the conversation is `DUMMY_CONVERSATION`. 
+
+The last step is to load the adapter. You do not need to edit this line of code. 
+ ```python
+active_adapter.load()
+```
+
+Putting this together. The full example is: 
 ```python
 from backend.adapters.dummy_adapter import DummyAdapter
 from backend.adapters.test_data import DUMMY_CONVERSATION
 active_adapter = DummyAdapter(DUMMY_CONVERSATION)
 active_adapter.load()
-```
-Researchers **must** follow the formatting above or else the adapter will not work. 
-
-Researchers must first start by importing the adapter. If the conversation is already loaded like in our Convokit example, researchers may skip the loading conversation step in line 2. Next, they must set the active adapter to their adapter. This naming is very important as `active_adapter` is the variable which represents the adapter in the code. In this example the active adapter is `DummyAdapter` and the conversation being loaded in this is `DUMMY_CONVERSATION`. The last step is to load the active adapter. 
+``` 
