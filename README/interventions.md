@@ -54,6 +54,16 @@ Real-time highlights that appear as a user drafts their reply in the text area. 
 | `trigger_event` | string | No | Only `"onText"` is currently supported — the highlighting intervention returns nothing for `onClick`, and there is no `onLoad` handling. Defaults to `"onText"`. |
 | `highlight_func` | function | No | Function that takes the draft text and returns a list of `[start, end]` character ranges to highlight. Defaults to a built-in keyword matcher (`default_highlight_logic`) if omitted. Note: subclasses that need more than just the text (e.g. the LLM-based toxicity highlighter, which also needs conversation context) override the intervention's payload logic directly instead of using this parameter. |
 
+## Write HTML for the Intervention
+
+Below is a detailed diagram of the HTML for the already implemented Popup class to help people looking to add their own interventions.
+
+![diagram](../static/images/HTMLexplan.drawio.svg)
+
+
+Note that when writing HTML, things in quotes like "popup" or "popup-close-button" are names that can be defined by the researcher. However, in order to maintain consistent database logging, the website requires the parent wrapper of the intervention to be attached to the data_intervention_type along with data_event_id for event logging in the database.
+
+
 ## Worked Example
 
 If you would like to see a worked example of how to add a highlight intervention using LLM reasoning, please click the link below.
